@@ -68,7 +68,7 @@ jobs:
 
       - name: Moodle Code Checker
         if: ${{ !cancelled() }}
-        run: moodle-plugin-ci phpcs --standard=moodle --exclude=moodle.Files.BoilerplateComment,moodle.PHP.IncludingFile,moodle.Commenting.InlineComment,Generic.NamingConventions.ConstructorName,moodle.Files.LineLength,moodle.ControlStructures.ControlSignature,moodle.Strings.ForbiddenStrings,moodle.Commenting.Package,NormalizedArrays.Arrays.CommaAfterLast,moodle.Commenting.MissingDocblock,moodle.Commenting.FileExpectedTags,moodle.Files.RequireLogin,moodle.Files.MoodleInternal,Generic.Arrays.DisallowLongArraySyntax,moodle.Commenting.VariableComment --max-warnings 50
+        run: moodle-plugin-ci phpcs --standard=moodle --max-warnings 50
 
       - name: PHPUnit tests
         if: ${{ !cancelled() }}

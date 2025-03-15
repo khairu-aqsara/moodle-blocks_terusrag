@@ -56,7 +56,7 @@ class openai implements provider_interface {
 
     /**
      * Constructor for the OpenAI provider.
-     * 
+     *
      * Initializes the provider with API credentials, model settings,
      * and configures the HTTP client for API communication.
      */
@@ -345,8 +345,8 @@ class openai implements provider_interface {
                     ];
 
                     $isexists = $DB->get_record('block_terusrag', [
-                            'contenthash' => $contenthash, 
-                            'moduleid' => $coursellm['moduleid']
+                            'contenthash' => $contenthash,
+                            'moduleid' => $coursellm['moduleid'],
                         ]
                     );
 
