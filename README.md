@@ -1,11 +1,11 @@
 # Terus Rag Block for Moodle
 
 ## Overview
-This Moodle block plugin implements Retrieval-Augmented Generation (RAG) functionality, allowing users to query course content using large language models. The plugin integrates with Gemini API to provide intelligent responses based on your course data.
+This Moodle block plugin implements Retrieval-Augmented Generation (RAG) functionality, allowing users to query course content using large language models. The plugin integrates with either Google's Gemini API or OpenAI to provide intelligent responses based on your course data.
 
 ## Features
 - Implements RAG (Retrieval-Augmented Generation) architecture
-- Integrates with Google's Gemini API
+- Integrates with Google's Gemini API and OpenAI
 - Supports vector embeddings for semantic search
 - Uses hybrid ranking with BM25 and cosine similarity
 - Automatically processes and indexes course content
@@ -21,8 +21,10 @@ graph TB
     end
 
     subgraph Embedding Layer
-        C --> D[Gemini Embeddings]
-        D --> E{Vector Storage}
+        C --> D[AI Provider]
+        D -->|Gemini| D1[Gemini Embeddings]
+        D -->|OpenAI| D2[OpenAI Embeddings]
+        D1 & D2 --> E{Vector Storage}
         E -->|Simple| F[Moodle DB]
         E -->|Scalable| G[ChromaDB]
         E -->|Cloud| H[Supabase]
@@ -37,8 +39,10 @@ graph TB
 
     subgraph Response Layer
         L --> M[Context Assembly]
-        M --> N[Gemini API]
-        N --> O[Response Formatter]
+        M --> N{AI Provider}
+        N -->|Gemini| N1[Gemini API]
+        N -->|OpenAI| N2[OpenAI API]
+        N1 & N2 --> O[Response Formatter]
         O --> P[UI Display]
     end
 
@@ -47,6 +51,25 @@ graph TB
     style Query Layer fill:#e8f5e9,stroke:#1b5e20
     style Response Layer fill:#fff3e0,stroke:#e65100
 ```
+
+## AI Providers
+
+This plugin supports two AI providers for handling RAG operations:
+
+1. Google Gemini (Default)
+   - Uses Gemini 2.0 Flash for chat completions
+   - Supports text-embedding-004 for vector embeddings
+   - Direct integration with Google AI Studio
+   - Optimized for performance and cost-effectiveness
+
+2. OpenAI (Alternative)
+   - Supports GPT-4 and GPT-3.5 models
+   - Multiple embedding model options:
+     * text-embedding-3-large
+     * text-embedding-3-small
+     * text-embedding-ada-002
+   - Flexible API endpoint configuration
+   - Enterprise-grade capabilities
 
 ## Installation
 1. Copy the terusrag folder into your Moodle blocks directory
@@ -57,13 +80,20 @@ graph TB
 ## Requirements
 - Moodle 4.1.3 or later
 - PHP 7.4 or later
-- Access to Gemini API
+- Access to either:
+  * Gemini API (for default provider)
+  * OpenAI API (for alternative provider)
 
 ## Configuration
-1. Obtain a Gemini API key from Google AI Studio
-2. Go to Site Administration → Plugins → Blocks → Terus RAG
-3. Enter your API key and other required settings
-4. Save changes and initialize the data process
+1. Go to Site Administration → Plugins → Blocks → Terus RAG
+2. Choose your preferred AI provider (Gemini or OpenAI)
+3. For Gemini:
+   - Obtain API key from Google AI Studio
+   - Configure Gemini endpoint and model settings
+4. For OpenAI:
+   - Obtain API key from OpenAI platform
+   - Configure OpenAI endpoint and model preferences
+5. Save changes and initialize the data process
 
 ## Core Files
 - **provider_interface.php**: Interface defining LLM provider capabilities

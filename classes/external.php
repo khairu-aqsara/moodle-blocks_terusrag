@@ -63,8 +63,14 @@ class block_terusrag_external extends external_api {
         self::validate_context($context);
         require_capability('block/terusrag:addinstance', $context);
 
-        $gemini = new \block_terusrag\gemini();
-        $response = $gemini->process_rag_query($params['query']);
+        $provider = get_config('block_terusrag', 'aiprovider');
+        if ($provider === 'gemini') {
+            $gemini = new \block_terusrag\gemini();
+            $response = $gemini->process_rag_query($params['query']);
+        } else if ($provider === 'openai') {
+            $openai = new \block_terusrag\openai();
+            $response = $openai->process_rag_query($params['query']);
+        }
 
         if (!isset($response['answer'])) {
             $response['answer'] = [];

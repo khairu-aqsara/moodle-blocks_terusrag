@@ -38,7 +38,7 @@ $geminiembeddingmodels = [
 ];
 
 $openaimodels = [
-    'gtp-4' => 'GPT-4',
+    'gpt-4' => 'GPT-4',
     'gpt-4o' => 'GPT-4o',
     'gpt-4-turbo' => 'GPT-4 Turbo',
     'gtp-4o-mini' => 'GPT-4o Mini',

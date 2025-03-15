@@ -49,6 +49,14 @@ interface provider_interface {
      */
     public function get_response($prompt);
 
+        /**
+         * Get the top ranked content chunks for a given query.
+         *
+         * @param string $query The search query
+         * @return array The top-ranked content chunks
+         */
+    public function get_top_ranked_chunks(string $query);
+
     /**
      * Process a RAG query.
      *

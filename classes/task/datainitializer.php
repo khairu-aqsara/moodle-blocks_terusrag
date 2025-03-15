@@ -59,8 +59,16 @@ class datainitializer extends \core\task\scheduled_task {
      */
     public function execute() {
         mtrace('Initializing data for Terus Rag block');
-        $geminiprovider = new \block_terusrag\gemini();
-        $geminiprovider->data_initialization();
+        $provider = get_config('block_terusrag', 'aiprovider');
+        if ($provider === 'gemini') {
+            $geminiprovider = new \block_terusrag\gemini();
+            $geminiprovider->data_initialization();
+        } else if ($provider === 'openai') {
+            $openaiprovider = new \block_terusrag\openai();
+            $openaiprovider->data_initialization();
+        } else {
+            mtrace('Unsupported AI provider: ' . $provider);
+        }
         mtrace('Data initialization complete');
     }
 }
