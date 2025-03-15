@@ -18,7 +18,7 @@
  * Form for editing TerusRAG block instance configuration.
  *
  * @package    block_terusrag
- *  * @copyright  2025 Terus e-Learning
+ * @copyright  2025 Terus e-Learning
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -29,7 +29,7 @@
  * specific to the TerusRAG block.
  *
  * @package    block_terusrag
- *  * @copyright  2025 Terus e-Learning
+ * @copyright  2025 Terus e-Learning
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class block_terusrag_edit_form extends block_edit_form {

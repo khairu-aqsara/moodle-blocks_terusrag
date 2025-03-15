@@ -18,13 +18,13 @@
  * Version details
  *
  * @package    block_terusrag
- *  * @copyright  2025 Terus e-Learning
+ * @copyright  2025 Terus e-Learning
  * @author     Khairu Aqsara <khairu@teruselearning.co.uk>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025031108;        // The current plugin version (Date: YYYYMMDDXX).
+$plugin->version   = 2025031109;        // The current plugin version (Date: YYYYMMDDXX).
 $plugin->requires  = 2022111800;        // Requires this Moodle version (Moodle 4.1.3+).
 $plugin->component = 'block_terusrag'; // Full name of the plugin (used for diagnostics).

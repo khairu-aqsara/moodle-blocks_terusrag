@@ -18,7 +18,7 @@
  * Strings for component 'block_terusrag', language 'en'
  *
  * @package    block_terusrag
- *  * @copyright  2025 Terus e-Learning
+ * @copyright  2025 Terus e-Learning
  * @author     Khairu Aqsara <khairu@teruselearning.co.uk>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -81,3 +81,19 @@ $string['queryplaceholder'] = 'Type your question here...';
 $string['responseplaceholder'] = 'Ask a question to get started';
 $string['askbutton'] = 'Ask';
 $string['token_usage'] = 'Token usage: Prompt: {$a->prompt}, Response: {$a->response}, Total: {$a->total}';
+
+// AI Provider.
+$string['aiprovider'] = 'AI Provider';
+$string['aiprovider_desc'] = 'Select the AI provider to use for generating responses';
+
+// Open AI.
+$string['openaisettings'] = 'OpenAI Settings';
+$string['openaisettings_desc'] = 'Configure the settings for OpenAI integration';
+$string['openai_api_key'] = 'OpenAI API Key';
+$string['openai_api_key_desc'] = 'Enter your OpenAI API key';
+$string['openai_endpoint'] = 'OpenAI API Endpoint';
+$string['openai_endpoint_desc'] = 'The base URL for OpenAI API requests';
+$string['openai_model_chat'] = 'Chat Model';
+$string['openai_model_chat_desc'] = 'Select the OpenAI model to use for chat interactions';
+$string['openai_model_embedding'] = 'Embedding Model';
+$string['openai_model_embedding_desc'] = 'Select the model to use for generating embeddings';

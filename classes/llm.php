@@ -24,7 +24,7 @@ namespace block_terusrag;
  * retrieval augmented generation (RAG).
  *
  * @package    block_terusrag
-  *  * @copyright  2025 Terus e-Learning
+ * @copyright  2025 Terus e-Learning
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class llm {

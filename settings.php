@@ -18,7 +18,7 @@
  * Settings for terusrag block
  *
  * @package    block_terusrag
- *  * @copyright  2025 Terus e-Learning
+ * @copyright  2025 Terus e-Learning
  * @author     Khairu Aqsara <khairu@teruselearning.co.uk>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -37,7 +37,32 @@ $geminiembeddingmodels = [
     'text-embedding-004' => 'text-embedding-004',
 ];
 
+$openaimodels = [
+    'gtp-4' => 'GPT-4',
+    'gpt-4o' => 'GPT-4o',
+    'gpt-4-turbo' => 'GPT-4 Turbo',
+    'gtp-4o-mini' => 'GPT-4o Mini',
+    'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
+];
+$openaiembeddingmodels = [
+    'text-embedding-3-large' => 'text-embedding-3-large',
+    'text-embedding-3-small' => 'text-embedding-3-small',
+    'text-embedding-ada-002' => 'text-embedding-ada-002',
+];
+
+$availableai = [
+    'gemini' => 'Google Gemini',
+    'openai' => 'OpenAI',
+];
+
 if ($hassiteconfig) {
+
+    $settings->add(new admin_setting_configselect('block_terusrag/aiprovider',
+        get_string('aiprovider', 'block_terusrag'),
+        get_string('aiprovider_desc', 'block_terusrag'),
+        'gemini',
+        $availableai));
+
     // Gemini AI Settings.
     $settings->add(new admin_setting_heading('block_terusrag/geminisettings',
         get_string('geminisettings', 'block_terusrag'),
@@ -48,24 +73,63 @@ if ($hassiteconfig) {
         get_string('gemini_api_key_desc', 'block_terusrag'),
         '',
         PARAM_TEXT));
+    $settings->hide_if('block_terusrag/gemini_api_key', 'block_terusrag/aiprovider', 'eq', 'openai');
 
     $settings->add(new admin_setting_configtext('block_terusrag/gemini_endpoint',
         get_string('gemini_endpoint', 'block_terusrag'),
         get_string('gemini_endpoint_desc', 'block_terusrag'),
         'https://generativelanguage.googleapis.com',
         PARAM_URL));
+    $settings->hide_if('block_terusrag/gemini_endpoint', 'block_terusrag/aiprovider', 'eq', 'openai');
 
     $settings->add(new admin_setting_configselect('block_terusrag/gemini_model_chat',
         get_string('gemini_model_chat', 'block_terusrag'),
         get_string('gemini_model_chat_desc', 'block_terusrag'),
         'gemini-2.0-flash',
         $geminimodels));
+    $settings->hide_if('block_terusrag/gemini_model_chat', 'block_terusrag/aiprovider', 'eq', 'openai');
 
     $settings->add(new admin_setting_configselect('block_terusrag/gemini_model_embedding',
         get_string('gemini_model_embedding', 'block_terusrag'),
         get_string('gemini_model_embedding_desc', 'block_terusrag'),
         'text-embedding-004',
         $geminiembeddingmodels));
+    $settings->hide_if('block_terusrag/gemini_model_embedding', 'block_terusrag/aiprovider', 'eq', 'openai');
+
+    // OpenAI Settings.
+    $settings->add(new admin_setting_heading('block_terusrag/openaisettings',
+        get_string('openaisettings', 'block_terusrag'),
+        get_string('openaisettings_desc', 'block_terusrag')));
+
+    $settings->add(new admin_setting_configtext('block_terusrag/openai_api_key',
+        get_string('openai_api_key', 'block_terusrag'),
+        get_string('openai_api_key_desc', 'block_terusrag'),
+        '',
+        PARAM_TEXT));
+    $settings->hide_if('block_terusrag/openai_api_key', 'block_terusrag/aiprovider', 'eq', 'gemini');
+
+    $settings->add(new admin_setting_configtext('block_terusrag/openai_endpoint',
+        get_string('openai_endpoint', 'block_terusrag'),
+        get_string('openai_endpoint_desc', 'block_terusrag'),
+        'https://api.openai.com/v1',
+        PARAM_URL));
+    $settings->hide_if('block_terusrag/openai_endpoint', 'block_terusrag/aiprovider', 'eq', 'gemini');
+
+    $settings->add(new admin_setting_configselect('block_terusrag/openai_model_chat',
+        get_string('openai_model_chat', 'block_terusrag'),
+        get_string('openai_model_chat_desc', 'block_terusrag'),
+        'gpt-4',
+        $openaimodels));
+    $settings->hide_if('block_terusrag/openai_model_chat', 'block_terusrag/aiprovider', 'eq', 'gemini');
+
+    $settings->add(new admin_setting_configselect('block_terusrag/openai_model_embedding',
+        get_string('openai_model_embedding', 'block_terusrag'),
+        get_string('openai_model_embedding_desc', 'block_terusrag'),
+        'text-embedding-3-small',
+        $openaiembeddingmodels));
+    $settings->hide_if('block_terusrag/openai_model_embedding', 'block_terusrag/aiprovider', 'eq', 'gemini');
+
+    // End of OpenAI Settings.
 
     // Vector Database Settings.
     $settings->add(new admin_setting_heading('block_terusrag/vectordbsettings',

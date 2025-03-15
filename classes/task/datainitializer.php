@@ -18,7 +18,7 @@
  * Scheduled task for initializing data for Terus RAG block
  *
  * @package    block_terusrag
- *  * @copyright  2025 Terus e-Learning
+ * @copyright  2025 Terus e-Learning
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -35,7 +35,7 @@ require_once($CFG->libdir . '/filelib.php');
  * to support retrieval augmented generation features.
  *
  * @package    block_terusrag
- *  * @copyright  2025 Terus e-Learning
+ * @copyright  2025 Terus e-Learning
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class datainitializer extends \core\task\scheduled_task {

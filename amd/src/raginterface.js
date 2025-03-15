@@ -18,7 +18,7 @@
  * JavaScript for Terus RAG block.
  *
  * @module     block_terusrag/raginterface
- * @copyright  2025 Khairu Aqsara <khairu@teruselearning.co.uk>
+  * @copyright  2025 Khairu Aqsara <khairu@teruselearning.co.uk>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
