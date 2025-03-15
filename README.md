@@ -1,3 +1,4 @@
+[![Moodle Plugin Quality Check](https://github.com/khairu-aqsara/terusrag/actions/workflows/main.yml/badge.svg)](https://github.com/khairu-aqsara/terusrag/actions/workflows/main.yml)
 # Terus Rag Block for Moodle
 
 ## Overview
@@ -95,9 +96,32 @@ This plugin supports two AI providers for handling RAG operations:
    - Configure OpenAI endpoint and model preferences
 5. Save changes and initialize the data process
 
+## Scheduled Tasks
+The plugin includes scheduled tasks to maintain and update the vector embeddings of course content:
+
+1. Content Indexing Task
+   - Runs daily by default
+   - Scans course content for changes
+   - Updates vector embeddings for modified content
+
+2. Running Tasks Manually
+   - Via CLI:
+     ```bash
+     # List all tasks
+     php admin/cli/scheduled_task.php --list
+
+     # Run content indexing task
+     php admin/cli/scheduled_task.php --execute=\\block_terusrag\\task\\datainitializer
+     ```
+   - Via Web Interface:
+     1. Go to Site Administration → Server → Scheduled tasks
+     2. Locate "TerusRAG content indexing" or "TerusRAG embeddings cleanup"
+     3. Click "Run now"
+
 ## Core Files
 - **provider_interface.php**: Interface defining LLM provider capabilities
 - **gemini.php**: Implementation of the Gemini API integration
+- **openai.php**: Implementation of the OpenAI API integration
 - **bm25.php**: BM25 ranking algorithm for text retrieval
 - **llm.php**: Helper class with vector operations for LLM processing
 
