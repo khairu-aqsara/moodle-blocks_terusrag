@@ -12,6 +12,19 @@ This Moodle block plugin implements Retrieval-Augmented Generation (RAG) functio
 - Automatically processes and indexes course content
 - Proper capability management for adding block instances
 
+## Vector Database Feature Implementation
+
+- [x] Moodle Database
+- [ ] ChromaDB
+- [ ] Supabase
+
+## Ai Provider Feature Implementation 
+- [x] Gemini
+- [x] OpenAI
+- [ ] Ollama
+- [ ] Anthropic
+
+
 ## How It Works
 
 ```mermaid
