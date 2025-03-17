@@ -113,10 +113,6 @@ The plugin includes scheduled tasks to maintain and update the vector embeddings
      # Run content indexing task
      php admin/cli/scheduled_task.php --execute=\\block_terusrag\\task\\datainitializer
      ```
-   - Via Web Interface:
-     1. Go to Site Administration → Server → Scheduled tasks
-     2. Locate "TerusRAG content indexing" or "TerusRAG embeddings cleanup"
-     3. Click "Run now"
 
 ## Core Files
 - **provider_interface.php**: Interface defining LLM provider capabilities
@@ -124,6 +120,22 @@ The plugin includes scheduled tasks to maintain and update the vector embeddings
 - **openai.php**: Implementation of the OpenAI API integration
 - **bm25.php**: BM25 ranking algorithm for text retrieval
 - **llm.php**: Helper class with vector operations for LLM processing
+
+## Prompt Optimization
+
+The plugin includes intelligent prompt optimization techniques to improve the quality of responses:
+
+1. **Key Term Emphasis**: Automatically identifies and emphasizes important terms in user queries
+2. **Entity Recognition**: Identifies proper nouns and technical terms to provide better context
+3. **Redundancy Removal**: Eliminates unnecessary phrases that can dilute query effectiveness
+4. **Context Enhancement**: Adds relevant context when queries lack sufficient specificity
+5. **Density Analysis**: Calculates content-to-filler ratio to improve query precision
+
+When enabled, this optimization process happens automatically when users submit queries, resulting in:
+- More accurate responses
+- Better focus on technical content
+- Reduced token consumption
+- Improved response consistency
 
 ## Capabilities
 - block/terusrag:addinstance - Controls who can add the block to a course
