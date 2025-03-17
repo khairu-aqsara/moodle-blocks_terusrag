@@ -18,7 +18,7 @@
  * Gemini provider implementation.
  *
  * @package    block_terusrag
- * @copyright  2023 TerusElearning
+ * @copyright  2025 Terus e-Learning
  * @author     khairu@teruselearning.co.uk
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -58,11 +58,14 @@ class gemini implements provider_interface {
      * Constructor initializes the Gemini API client.
      */
     public function __construct() {
-        $apikey = get_config('block_terusrag', 'gemini_api_key');
-        $host = get_config('block_terusrag', 'gemini_endpoint');
-        $embeddingmodels = get_config('block_terusrag', 'gemini_model_embedding');
-        $chatmodels = get_config('block_terusrag', 'gemini_model_chat');
-        $systemprompt = get_config('block_terusrag', 'system_prompt');
+        $apikey = get_config("block_terusrag", "gemini_api_key");
+        $host = get_config("block_terusrag", "gemini_endpoint");
+        $embeddingmodels = get_config(
+            "block_terusrag",
+            "gemini_model_embedding"
+        );
+        $chatmodels = get_config("block_terusrag", "gemini_model_chat");
+        $systemprompt = get_config("block_terusrag", "system_prompt");
 
         $this->systemprompt = $systemprompt;
         $this->apikey = $apikey;
@@ -70,16 +73,19 @@ class gemini implements provider_interface {
         $this->chatmodel = $chatmodels;
         $this->embeddingmodel = $embeddingmodels;
         $this->headers = [
-            'Content-Type: application/json',
-            'x-goog-api-key: ' . $this->apikey,
+            "Content-Type: application/json",
+            "x-goog-api-key: " . $this->apikey,
         ];
-        $this->httpclient = new curl(['cache' => true, 'module_cache' => 'terusrag']);
+        $this->httpclient = new curl([
+            "cache" => true,
+            "module_cache" => "terusrag",
+        ]);
         $this->httpclient->setHeader($this->headers);
         $this->httpclient->setopt([
-            'CURLOPT_SSL_VERIFYPEER' => false,
-            'CURLOPT_SSL_VERIFYHOST' => false,
-            'CURLOPT_TIMEOUT' => 30,
-            'CURLOPT_CONNECTTIMEOUT' => 30,
+            "CURLOPT_SSL_VERIFYPEER" => false,
+            "CURLOPT_SSL_VERIFYHOST" => false,
+            "CURLOPT_TIMEOUT" => 30,
+            "CURLOPT_CONNECTTIMEOUT" => 30,
         ]);
     }
 
@@ -93,13 +99,13 @@ class gemini implements provider_interface {
     public function get_embedding($query) {
         $query = is_array($query) ? $query : [$query];
         $payload = [
-            'requests' => array_map(function($text) {
+            "requests" => array_map(function ($text) {
                 return [
-                    'model' => 'models/' . $this->embeddingmodel,
-                    'content' => [
-                        'parts' => [
+                    "model" => "models/" . $this->embeddingmodel,
+                    "content" => [
+                        "parts" => [
                             [
-                                'text' => $text,
+                                "text" => $text,
                             ],
                         ],
                     ],
@@ -108,28 +114,35 @@ class gemini implements provider_interface {
         ];
 
         $response = $this->httpclient->post(
-            $this->host . '/v1beta/models/' . $this->embeddingmodel . ':batchEmbedContents',
+            $this->host .
+                "/v1beta/models/" .
+                $this->embeddingmodel .
+                ":batchEmbedContents",
             json_encode($payload)
         );
 
         if ($this->httpclient->get_errno()) {
             $error = $this->httpclient->error;
-            debugging('Curl error: ' . $error);
-            throw new moodle_exception('Curl error: ' . $error);
+            debugging("Curl error: " . $error);
+            throw new moodle_exception("Curl error: " . $error);
         }
 
         $data = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new moodle_exception('JSON decode error: ' . json_last_error_msg());
+            throw new moodle_exception(
+                "JSON decode error: " . json_last_error_msg()
+            );
         }
 
-        if (isset($data['embeddings']) && is_array($data['embeddings'])) {
-            $embeddingsdata = $data['embeddings'];
-            return is_array($query) ? $embeddingsdata : $embeddingsdata[0]['values'];
+        if (isset($data["embeddings"]) && is_array($data["embeddings"])) {
+            $embeddingsdata = $data["embeddings"];
+            return is_array($query)
+                ? $embeddingsdata
+                : $embeddingsdata[0]["values"];
         } else {
-            debugging('Gemini API: Invalid response format: ' . $response);
-            throw new moodle_exception('Invalid response from Gemini API');
+            debugging("Gemini API: Invalid response format: " . $response);
+            throw new moodle_exception("Invalid response from Gemini API");
         }
     }
 
@@ -142,30 +155,36 @@ class gemini implements provider_interface {
      */
     public function get_response($prompt) {
         $payload = [
-            'contents' => [
-                'parts' => [
+            "contents" => [
+                "parts" => [
                     [
-                        'text' => $prompt,
+                        "text" => $prompt,
                     ],
                 ],
             ],
         ];
 
         $response = $this->httpclient->post(
-            $this->host . '/v1beta/models/' . $this->chatmodel . ':generateContent?key=' . $this->apikey,
+            $this->host .
+                "/v1beta/models/" .
+                $this->chatmodel .
+                ":generateContent?key=" .
+                $this->apikey,
             json_encode($payload)
         );
 
         if ($this->httpclient->get_errno()) {
             $error = $this->httpclient->error;
-            debugging('Curl error: ' . $error);
-            throw new moodle_exception('Curl error: ' . $error);
+            debugging("Curl error: " . $error);
+            throw new moodle_exception("Curl error: " . $error);
         }
 
         $data = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new moodle_exception('JSON decode error: ' . json_last_error_msg());
+            throw new moodle_exception(
+                "JSON decode error: " . json_last_error_msg()
+            );
         }
 
         return $data;
@@ -190,23 +209,44 @@ class gemini implements provider_interface {
         $contextinjection = "Context:\n" . json_encode($toprankchunks) . "\n\n";
 
         // 4. User Query.
-        $prompt = $systemprompt . "\n" . $contextinjection . "Question: " . $userquery . "\nAnswer:";
+        $prompt =
+            $systemprompt .
+            "\n" .
+            $contextinjection .
+            "Question: " .
+            $userquery .
+            "\nAnswer:";
 
         // 5. API Call to Gemini.
         $answer = $this->get_response($prompt);
         $response = [
-            'answer' => isset($answer['candidates']) ? $this->parse_response($answer['candidates']) : [],
-            'promptTokenCount' => isset($answer['usageMetadata']['promptTokenCount']) ?
-                $answer['usageMetadata']['promptTokenCount'] : 0,
-            'responseTokenCount' => isset($answer['usageMetadata']['candidatesTokenCount']) ?
-                $answer['usageMetadata']['candidatesTokenCount'] : 0,
-            'totalTokenCount' => isset($answer['usageMetadata']['totalTokenCount']) ?
-                $answer['usageMetadata']['totalTokenCount'] : 0,
+            "answer" => isset($answer["candidates"])
+                ? $this->parse_response($answer["candidates"])
+                : [],
+            "promptTokenCount" => isset(
+                $answer["usageMetadata"]["promptTokenCount"]
+            )
+                ? $answer["usageMetadata"]["promptTokenCount"]
+                : 0,
+            "responseTokenCount" => isset(
+                $answer["usageMetadata"]["candidatesTokenCount"]
+            )
+                ? $answer["usageMetadata"]["candidatesTokenCount"]
+                : 0,
+            "totalTokenCount" => isset(
+                $answer["usageMetadata"]["totalTokenCount"]
+            )
+                ? $answer["usageMetadata"]["totalTokenCount"]
+                : 0,
         ];
 
         // Log if unexpected response structure is received.
-        if (!isset($answer['candidates']) || !isset($answer['usageMetadata'])) {
-            debugging('Gemini API returned unexpected response structure: ' . json_encode($answer), DEBUG_DEVELOPER);
+        if (!isset($answer["candidates"]) || !isset($answer["usageMetadata"])) {
+            debugging(
+                "Gemini API returned unexpected response structure: " .
+                    json_encode($answer),
+                DEBUG_DEVELOPER
+            );
         }
 
         return $response;
@@ -219,10 +259,10 @@ class gemini implements provider_interface {
      * @param string $result The accumulated result string
      * @return string The extracted text
      */
-    public function extract_all_text_response($array, &$result = '') {
+    public function extract_all_text_response($array, &$result = "") {
         foreach ($array as $key => $value) {
-            if ($key === 'text' && is_string($value)) {
-                $result .= $value . ' ';
+            if ($key === "text" && is_string($value)) {
+                $result .= $value . " ";
             } else if (is_array($value)) {
                 $this->extract_all_text_response($value, $result);
             }
@@ -246,13 +286,15 @@ class gemini implements provider_interface {
         foreach ($lines as $line) {
             $line = trim($line);
             if (!empty($line)) {
-                $cleanlines[] = $this->get_course_from_proper_answer($this->get_proper_answer($line));
+                $cleanlines[] = $this->get_course_from_proper_answer(
+                    $this->get_proper_answer($line)
+                );
             }
         }
 
         // Filter out items where id is 0 or not set.
-        return array_filter($cleanlines, function($item) {
-            return isset($item['id']) && $item['id'] != 0;
+        return array_filter($cleanlines, function ($item) {
+            return isset($item["id"]) && $item["id"] != 0;
         });
     }
 
@@ -265,18 +307,27 @@ class gemini implements provider_interface {
     public function get_course_from_proper_answer(array $response) {
         global $DB;
         if ($response) {
-            if (isset($response['id'])) {
-                $course = $DB->get_record('course', ['id' => $response['id']]);
-                $viewurl = $course ? new \moodle_url('/course/view.php', ['id' => $response['id']]) : null;
+            if (isset($response["id"])) {
+                $course = $DB->get_record("course", ["id" => $response["id"]]);
+                $viewurl = $course
+                    ? new \moodle_url("/course/view.php", [
+                        "id" => $response["id"],
+                    ])
+                    : null;
                 return [
-                    'id' => $response['id'],
-                    'title' => $course ? $course->fullname : 'Unknown Course',
-                    'content' => $response['content'],
-                    'viewurl' => !is_null($viewurl) ? $viewurl->out() : null,
+                    "id" => $response["id"],
+                    "title" => $course ? $course->fullname : "Unknown Course",
+                    "content" => $response["content"],
+                    "viewurl" => !is_null($viewurl) ? $viewurl->out() : null,
                 ];
             }
         }
-        return ['id' => 0, 'title' => 'Unknown Course', 'content' => 'Unknown Course', 'viewurl' => null];
+        return [
+            "id" => 0,
+            "title" => "Unknown Course",
+            "content" => "Unknown Course",
+            "viewurl" => null,
+        ];
     }
 
     /**
@@ -286,10 +337,10 @@ class gemini implements provider_interface {
      * @return array Structured response with ID and content
      */
     public function get_proper_answer($originalstring) {
-        preg_match('/(\d+)/', $originalstring, $matches);
-        $id = isset($matches[1]) ? (int)$matches[1] : null;
-        $cleanstring = preg_replace('/^\[\d+\]\s*/', '', $originalstring);
-        return ['id' => $id, 'content' => $cleanstring];
+        preg_match("/(\d+)/", $originalstring, $matches);
+        $id = isset($matches[1]) ? (int) $matches[1] : null;
+        $cleanstring = preg_replace("/^\[\d+\]\s*/", "", $originalstring);
+        return ["id" => $id, "content" => $cleanstring];
     }
 
     /**
@@ -302,9 +353,14 @@ class gemini implements provider_interface {
         global $DB;
         // 1. Generate embedding for the query.
         $queryembeddingresponse = $this->get_embedding($query);
-        $queryembedding = $queryembeddingresponse[0]['values']; // Extract the actual embedding values.
+        $queryembedding = $queryembeddingresponse[0]["values"]; // Extract the actual embedding values.
         // 2. Retrieve all content chunks from the database.
-        $contentchunks = $DB->get_records('block_terusrag', [], '', 'id, content, embedding');
+        $contentchunks = $DB->get_records(
+            "block_terusrag",
+            [],
+            "",
+            "id, content, embedding"
+        );
 
         // 3. Calculate cosine similarity between the query embedding and each content chunk embedding.
         $chunkscores = [];
@@ -312,7 +368,10 @@ class gemini implements provider_interface {
             $chunkembedding = unserialize($chunk->embedding); // Unserialize the embedding.
             if ($chunkembedding) {
                 $llm = new llm();
-                $similarity = $llm->cosine_similarity($queryembedding, $chunkembedding);
+                $similarity = $llm->cosine_similarity(
+                    $queryembedding,
+                    $chunkembedding
+                );
                 $chunkscores[$chunk->id] = $similarity;
             } else {
                 $chunkscores[$chunk->id] = 0; // If embedding is null, assign a score of 0.
@@ -323,17 +382,24 @@ class gemini implements provider_interface {
         arsort($chunkscores);
 
         // 5. BM25 Re-ranking (Example implementation - adjust as needed).
-        $bm25 = new bm25(array_column((array)$contentchunks, 'content', 'id'));
+        $bm25 = new bm25(array_column((array) $contentchunks, "content", "id"));
         $bm25scores = [];
         foreach ($contentchunks as $chunk) {
-            $bm25scores[$chunk->id] = $bm25->score($query, $chunk->content, $chunk->id);
+            $bm25scores[$chunk->id] = $bm25->score(
+                $query,
+                $chunk->content,
+                $chunk->id
+            );
         }
 
         // 6. Hybrid Scoring and Re-ranking.
         $hybridscores = [];
         foreach ($chunkscores as $chunkid => $cosinesimilarity) {
-            $bm25score = isset($bm25scores[$chunkid]) ? $bm25scores[$chunkid] : 0;
-            $hybridscores[$chunkid] = (0.7 * $cosinesimilarity) + (0.3 * $bm25score);
+            $bm25score = isset($bm25scores[$chunkid])
+                ? $bm25scores[$chunkid]
+                : 0;
+            $hybridscores[$chunkid] =
+                0.7 * $cosinesimilarity + 0.3 * $bm25score;
         }
         arsort($hybridscores);
 
@@ -342,7 +408,10 @@ class gemini implements provider_interface {
         $topnchunks = [];
 
         foreach ($topnchunkids as $chunkid) {
-            $topnchunks[] = ['content' => $contentchunks[$chunkid]->content, 'id' => $chunkid];
+            $topnchunks[] = [
+                "content" => $contentchunks[$chunkid]->content,
+                "id" => $chunkid,
+            ];
         }
 
         return $topnchunks;
@@ -358,34 +427,40 @@ class gemini implements provider_interface {
      */
     public function data_initialization() {
         global $DB;
-        $courses = $DB->get_records('course', ['visible' => 1], 'id', 'id, fullname, shortname, summary');
+        $courses = $DB->get_records(
+            "course",
+            ["visible" => 1],
+            "id",
+            "id, fullname, shortname, summary"
+        );
 
         $chunksize = 512;
         $chunk = [];
         $coursesindex = [];
         foreach ($courses as $j => $course) {
-
-            $coursecontent = !empty($course->summary) ? $course->summary : $course->fullname;
+            $coursecontent = !empty($course->summary)
+                ? $course->summary
+                : $course->fullname;
             $string = strip_tags($coursecontent);
             $contenthash = sha1($string);
 
             $coursesindex[$j] = [
-                'title' => $course->fullname,
-                'moduletype' => 'course',
-                'moduleid' => $course->id,
-                'content' => $string,
-                'contenthash' => $contenthash,
-                'embedding' => '',
-                'chunkindex' => [],
-                'timecreated' => time(),
-                'timemodified' => time(),
+                "title" => $course->fullname,
+                "moduletype" => "course",
+                "moduleid" => $course->id,
+                "content" => $string,
+                "contenthash" => $contenthash,
+                "embedding" => "",
+                "chunkindex" => [],
+                "timecreated" => time(),
+                "timemodified" => time(),
             ];
 
             $stringlength = mb_strlen($string);
             for ($i = 0; $i < $stringlength; $i += $chunksize) {
                 $chunkindex = count($chunk);
                 $chunk[] = mb_substr($string, $i, $chunksize);
-                $coursesindex[$j]['chunkindex'][] = $chunkindex;
+                $coursesindex[$j]["chunkindex"][] = $chunkindex;
             }
         }
 
@@ -393,31 +468,37 @@ class gemini implements provider_interface {
         if (count($embeddingsdata) > 0) {
             foreach ($embeddingsdata as $i => $embedding) {
                 // Extract values or use the embedding directly if it's already the values array.
-                $values = is_array($embedding) && isset($embedding['values']) ? $embedding['values'] : $embedding;
+                $values =
+                    is_array($embedding) && isset($embedding["values"])
+                        ? $embedding["values"]
+                        : $embedding;
                 // Find which course this embedding belongs to.
                 foreach ($coursesindex as $coursekey => &$coursedata) {
-                    if (in_array($i, $coursedata['chunkindex'])) {
+                    if (in_array($i, $coursedata["chunkindex"])) {
                         // Add this specific embedding to the course data with its chunk index as key.
-                        if (!isset($coursedata['embeddings'])) {
-                            $coursedata['embeddings'] = [];
+                        if (!isset($coursedata["embeddings"])) {
+                            $coursedata["embeddings"] = [];
                         }
                         // Store embedding with its index as key.
-                        $coursedata['embedding'] = serialize($values);
+                        $coursedata["embedding"] = serialize($values);
                         break; // Once found, no need to check other courses.
                     }
                 }
             }
 
             foreach ($coursesindex as $coursellm) {
-                $hash = $coursellm['contenthash'];
-                $isexists = $DB->get_record('block_terusrag', ['contenthash' => $hash, 'moduleid' => $coursellm['moduleid']]);
+                $hash = $coursellm["contenthash"];
+                $isexists = $DB->get_record("block_terusrag", [
+                    "contenthash" => $hash,
+                    "moduleid" => $coursellm["moduleid"],
+                ]);
                 if ($isexists) {
-                    $coursellm['id'] = $isexists->id;
-                    unset($coursellm['chunkindex']);
-                    $DB->update_record('block_terusrag', (object)$coursellm);
+                    $coursellm["id"] = $isexists->id;
+                    unset($coursellm["chunkindex"]);
+                    $DB->update_record("block_terusrag", (object) $coursellm);
                 } else {
-                    unset($coursellm['chunkindex']);
-                    $DB->insert_record('block_terusrag', (object)$coursellm);
+                    unset($coursellm["chunkindex"]);
+                    $DB->insert_record("block_terusrag", (object) $coursellm);
                 }
             }
         }
