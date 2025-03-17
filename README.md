@@ -1,6 +1,8 @@
 [![Moodle Plugin Quality Check](https://github.com/khairu-aqsara/terusrag/actions/workflows/main.yml/badge.svg)](https://github.com/khairu-aqsara/terusrag/actions/workflows/main.yml)
 # Terus Rag Block for Moodle
 
+![Terus RAG Block for Moodle](./screenshot/rag_block.jpg)
+
 ## Overview
 This Moodle block plugin implements Retrieval-Augmented Generation (RAG) functionality, allowing users to query course content using large language models. The plugin integrates with either Google's Gemini API or OpenAI to provide intelligent responses based on your course data.
 
