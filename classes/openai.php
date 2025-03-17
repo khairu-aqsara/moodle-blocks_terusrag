@@ -54,6 +54,9 @@ class openai implements provider_interface {
     /** @var string System prompt to guide model behavior */
     protected string $systemprompt;
 
+    /** @var bool Whether to prompt for optimization */
+    protected bool $promptoptimization = false;
+
     /**
      * Constructor for the OpenAI provider.
      *
@@ -69,12 +72,15 @@ class openai implements provider_interface {
         );
         $chatmodels = get_config("block_terusrag", "openai_model_chat");
         $systemprompt = get_config("block_terusrag", "system_prompt");
+        $promptoptimization = get_config("block_terusrag", "optimizeprompt");
 
         $this->systemprompt = $systemprompt;
         $this->apikey = $apikey;
         $this->host = $host;
         $this->chatmodel = $chatmodels;
         $this->embeddingmodel = $embeddingmodels;
+        $this->promptoptimization = $promptoptimization === 'yes' ? true : false;
+
         $this->headers = [
             "Content-Type: application/json",
             "Authorization: Bearer " . $this->apikey,
@@ -264,6 +270,15 @@ class openai implements provider_interface {
         global $DB;
 
         $systemprompt = $this->systemprompt;
+
+        if ($this->promptoptimization) {
+            $llm = new llm();
+            $userquery = $llm->optimize_prompt($userquery);
+            $userquery = (isset($userquery["optimized_prompt"]) && !empty($userquery["optimized_prompt"]))
+                ? $userquery["optimized_prompt"]
+                : $userquery;
+        }
+
         $toprankchunks = $this->get_top_ranked_chunks($userquery);
         $contextinjection = "Context:\n" . json_encode($toprankchunks) . "\n\n";
         $prompt =

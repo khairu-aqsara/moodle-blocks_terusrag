@@ -86,6 +86,10 @@ $string['token_usage'] = 'Token usage: Prompt: {$a->prompt}, Response: {$a->resp
 $string['aiprovider'] = 'AI Provider';
 $string['aiprovider_desc'] = 'Select the AI provider to use for generating responses';
 
+// Prompt Optimize.
+$string['optimizeprompt'] = 'Prompt Optimization';
+$string['optimizeprompt_desc'] = 'Optimize the system prompt for better AI responses';
+
 // Open AI.
 $string['openaisettings'] = 'OpenAI Settings';
 $string['openaisettings_desc'] = 'Configure the settings for OpenAI integration';

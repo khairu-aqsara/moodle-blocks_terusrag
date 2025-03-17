@@ -25,6 +25,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025031110;        // The current plugin version (Date: YYYYMMDDXX).
+$plugin->version   = 2025031111;        // The current plugin version (Date: YYYYMMDDXX).
 $plugin->requires  = 2022111800;        // Requires this Moodle version (Moodle 4.1.3+).
 $plugin->component = 'block_terusrag'; // Full name of the plugin (used for diagnostics).

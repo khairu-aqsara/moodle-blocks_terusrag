@@ -54,6 +54,9 @@ class gemini implements provider_interface {
     /** @var string System prompt to guide model behavior */
     protected string $systemprompt;
 
+    /** @var bool Whether to prompt for optimization */
+    protected bool $promptoptimization = false;
+
     /**
      * Constructor initializes the Gemini API client.
      */
@@ -66,12 +69,14 @@ class gemini implements provider_interface {
         );
         $chatmodels = get_config("block_terusrag", "gemini_model_chat");
         $systemprompt = get_config("block_terusrag", "system_prompt");
+        $promptoptimization = get_config("block_terusrag", "optimizeprompt");
 
         $this->systemprompt = $systemprompt;
         $this->apikey = $apikey;
         $this->host = $host;
         $this->chatmodel = $chatmodels;
         $this->embeddingmodel = $embeddingmodels;
+        $this->promptoptimization = $promptoptimization === 'yes' ? true : false;
         $this->headers = [
             "Content-Type: application/json",
             "x-goog-api-key: " . $this->apikey,
@@ -201,6 +206,15 @@ class gemini implements provider_interface {
 
         // 1. System Prompt (Define role and behavior).
         $systemprompt = $this->systemprompt;
+
+        // 1.1 Optimize User Prompt.
+        if ($this->promptoptimization) {
+            $llm = new llm();
+            $userquery = $llm->optimize_prompt($userquery);
+            $userquery = (isset($userquery["optimized_prompt"]) && !empty($userquery["optimized_prompt"]))
+                ? $userquery["optimized_prompt"]
+                : $userquery;
+        }
 
         // 2. Retrieve relevant chunks.
         $toprankchunks = $this->get_top_ranked_chunks($userquery);

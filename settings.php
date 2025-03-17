@@ -55,6 +55,11 @@ $availableai = [
     'openai' => 'OpenAI',
 ];
 
+$promptoptimize = [
+    'yes' => 'Yes',
+    'no' => 'No',
+];
+
 if ($hassiteconfig) {
 
     $settings->add(new admin_setting_configselect('block_terusrag/aiprovider',
@@ -62,6 +67,12 @@ if ($hassiteconfig) {
         get_string('aiprovider_desc', 'block_terusrag'),
         'gemini',
         $availableai));
+
+    $settings->add(new admin_setting_configselect('block_terusrag/optimizeprompt',
+        get_string('optimizeprompt', 'block_terusrag'),
+        get_string('optimizeprompt_desc', 'block_terusrag'),
+        'no',
+        $promptoptimize));
 
     // Gemini AI Settings.
     $settings->add(new admin_setting_heading('block_terusrag/geminisettings',
