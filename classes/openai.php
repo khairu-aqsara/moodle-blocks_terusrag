@@ -18,7 +18,7 @@
  * Open AI provider implementation.
  *
  * @package    block_terusrag
- * @copyright  2023 TerusElearning
+ * @copyright  2025 Terus e-Learning
  * @author     khairu@teruselearning.co.uk
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -61,11 +61,14 @@ class openai implements provider_interface {
      * and configures the HTTP client for API communication.
      */
     public function __construct() {
-        $apikey = get_config('block_terusrag', 'openai_api_key');
-        $host = get_config('block_terusrag', 'openai_endpoint');
-        $embeddingmodels = get_config('block_terusrag', 'openai_model_embedding');
-        $chatmodels = get_config('block_terusrag', 'openai_model_chat');
-        $systemprompt = get_config('block_terusrag', 'system_prompt');
+        $apikey = get_config("block_terusrag", "openai_api_key");
+        $host = get_config("block_terusrag", "openai_endpoint");
+        $embeddingmodels = get_config(
+            "block_terusrag",
+            "openai_model_embedding"
+        );
+        $chatmodels = get_config("block_terusrag", "openai_model_chat");
+        $systemprompt = get_config("block_terusrag", "system_prompt");
 
         $this->systemprompt = $systemprompt;
         $this->apikey = $apikey;
@@ -73,16 +76,19 @@ class openai implements provider_interface {
         $this->chatmodel = $chatmodels;
         $this->embeddingmodel = $embeddingmodels;
         $this->headers = [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $this->apikey,
+            "Content-Type: application/json",
+            "Authorization: Bearer " . $this->apikey,
         ];
-        $this->httpclient = new curl(['cache' => true, 'module_cache' => 'terusrag']);
+        $this->httpclient = new curl([
+            "cache" => true,
+            "module_cache" => "terusrag",
+        ]);
         $this->httpclient->setHeader($this->headers);
         $this->httpclient->setopt([
-            'CURLOPT_SSL_VERIFYPEER' => false,
-            'CURLOPT_SSL_VERIFYHOST' => false,
-            'CURLOPT_TIMEOUT' => 30,
-            'CURLOPT_CONNECTTIMEOUT' => 30,
+            "CURLOPT_SSL_VERIFYPEER" => false,
+            "CURLOPT_SSL_VERIFYHOST" => false,
+            "CURLOPT_TIMEOUT" => 30,
+            "CURLOPT_CONNECTTIMEOUT" => 30,
         ]);
     }
 
@@ -95,28 +101,30 @@ class openai implements provider_interface {
      */
     public function get_embedding($query) {
         $payload = [
-            'input' => $query,
-            'model' => $this->embeddingmodel,
-            'encoding_format' => 'float',
+            "input" => $query,
+            "model" => $this->embeddingmodel,
+            "encoding_format" => "float",
         ];
 
         $response = $this->httpclient->post(
-            $this->host . '/embeddings',
+            $this->host . "/embeddings",
             json_encode($payload)
         );
 
         $data = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new moodle_exception('JSON decode error: ' . json_last_error_msg());
+            throw new moodle_exception(
+                "JSON decode error: " . json_last_error_msg()
+            );
         }
 
-        if (isset($data['data']) && is_array($data['data'])) {
-            $embeddingsdata = $data['data'][0]['embedding'];
+        if (isset($data["data"]) && is_array($data["data"])) {
+            $embeddingsdata = $data["data"][0]["embedding"];
             return $embeddingsdata;
         } else {
-            debugging('Open API: Invalid response format: ' . $response);
-            throw new moodle_exception('Invalid response from Open API');
+            debugging("Open API: Invalid response format: " . $response);
+            throw new moodle_exception("Invalid response from Open API");
         }
     }
 
@@ -129,43 +137,46 @@ class openai implements provider_interface {
      */
     public function get_response($prompt) {
         $payload = [
-            'model' => $this->chatmodel,
-            'messages' => [
+            "model" => $this->chatmodel,
+            "messages" => [
                 [
-                    'role' => 'system',
-                    'content' => $prompt,
+                    "role" => "system",
+                    "content" => $prompt,
                 ],
             ],
         ];
 
         $response = $this->httpclient->post(
-            $this->host . '/chat/completions',
+            $this->host . "/chat/completions",
             json_encode($payload)
         );
 
         if ($this->httpclient->get_errno()) {
             $error = $this->httpclient->error;
-            debugging('Curl error: ' . $error);
-            throw new moodle_exception('Curl error: ' . $error);
+            debugging("Curl error: " . $error);
+            throw new moodle_exception("Curl error: " . $error);
         }
 
         $data = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new moodle_exception('JSON decode error: ' . json_last_error_msg());
+            throw new moodle_exception(
+                "JSON decode error: " . json_last_error_msg()
+            );
         }
 
-        if (isset($data['choices']) && is_array($data['choices'])) {
+        if (isset($data["choices"]) && is_array($data["choices"])) {
             $return = [
-                'content' => $data['choices'][0]['message']['content'] ?? '',
-                'promptTokenCount' => $data['usage']['prompt_tokens'] ?? 0,
-                'responseTokenCount' => $data['usage']['completion_tokens'] ?? 0,
-                'totalTokenCount' => $data['usage']['total_tokens'] ?? 0,
+                "content" => $data["choices"][0]["message"]["content"] ?? "",
+                "promptTokenCount" => $data["usage"]["prompt_tokens"] ?? 0,
+                "responseTokenCount" =>
+                    $data["usage"]["completion_tokens"] ?? 0,
+                "totalTokenCount" => $data["usage"]["total_tokens"] ?? 0,
             ];
             return $return;
         } else {
-            debugging('Open API: Invalid response format: ' . $response);
-            throw new moodle_exception('Invalid response from Open API');
+            debugging("Open API: Invalid response format: " . $response);
+            throw new moodle_exception("Invalid response from Open API");
         }
     }
 
@@ -181,7 +192,12 @@ class openai implements provider_interface {
         $queryembeddingresponse = $this->get_embedding($query);
         $queryembedding = $queryembeddingresponse; // Extract the actual embedding values.
         // 2. Retrieve all content chunks from the database.
-        $contentchunks = $DB->get_records('block_terusrag', [], '', 'id, content, embedding');
+        $contentchunks = $DB->get_records(
+            "block_terusrag",
+            [],
+            "",
+            "id, content, embedding"
+        );
 
         // 3. Calculate cosine similarity between the query embedding and each content chunk embedding.
         $chunkscores = [];
@@ -189,7 +205,10 @@ class openai implements provider_interface {
             $chunkembedding = unserialize($chunk->embedding); // Unserialize the embedding.
             if ($chunkembedding) {
                 $llm = new llm();
-                $similarity = $llm->cosine_similarity($queryembedding, $chunkembedding);
+                $similarity = $llm->cosine_similarity(
+                    $queryembedding,
+                    $chunkembedding
+                );
                 $chunkscores[$chunk->id] = $similarity;
             } else {
                 $chunkscores[$chunk->id] = 0; // If embedding is null, assign a score of 0.
@@ -200,17 +219,24 @@ class openai implements provider_interface {
         arsort($chunkscores);
 
         // 5. BM25 Re-ranking (Example implementation - adjust as needed).
-        $bm25 = new bm25(array_column((array)$contentchunks, 'content', 'id'));
+        $bm25 = new bm25(array_column((array) $contentchunks, "content", "id"));
         $bm25scores = [];
         foreach ($contentchunks as $chunk) {
-            $bm25scores[$chunk->id] = $bm25->score($query, $chunk->content, $chunk->id);
+            $bm25scores[$chunk->id] = $bm25->score(
+                $query,
+                $chunk->content,
+                $chunk->id
+            );
         }
 
         // 6. Hybrid Scoring and Re-ranking.
         $hybridscores = [];
         foreach ($chunkscores as $chunkid => $cosinesimilarity) {
-            $bm25score = isset($bm25scores[$chunkid]) ? $bm25scores[$chunkid] : 0;
-            $hybridscores[$chunkid] = (0.7 * $cosinesimilarity) + (0.3 * $bm25score);
+            $bm25score = isset($bm25scores[$chunkid])
+                ? $bm25scores[$chunkid]
+                : 0;
+            $hybridscores[$chunkid] =
+                0.7 * $cosinesimilarity + 0.3 * $bm25score;
         }
         arsort($hybridscores);
 
@@ -219,7 +245,10 @@ class openai implements provider_interface {
         $topnchunks = [];
 
         foreach ($topnchunkids as $chunkid) {
-            $topnchunks[] = ['content' => $contentchunks[$chunkid]->content, 'id' => $chunkid];
+            $topnchunks[] = [
+                "content" => $contentchunks[$chunkid]->content,
+                "id" => $chunkid,
+            ];
         }
 
         return $topnchunks;
@@ -237,14 +266,28 @@ class openai implements provider_interface {
         $systemprompt = $this->systemprompt;
         $toprankchunks = $this->get_top_ranked_chunks($userquery);
         $contextinjection = "Context:\n" . json_encode($toprankchunks) . "\n\n";
-        $prompt = $systemprompt . "\n" . $contextinjection . "Question: " . $userquery . "\nAnswer:";
+        $prompt =
+            $systemprompt .
+            "\n" .
+            $contextinjection .
+            "Question: " .
+            $userquery .
+            "\nAnswer:";
         $answer = $this->get_response($prompt);
 
         $response = [
-            'answer' => isset($answer['content']) ? $this->parse_response($answer['content']) : [],
-            'promptTokenCount' => isset($answer['promptTokenCount']) ? $answer['promptTokenCount'] : 0,
-            'responseTokenCount' => isset($answer['responseTokenCount']) ? $answer['responseTokenCount'] : 0,
-            'totalTokenCount' => isset($answer['totalTokenCount']) ? $answer['totalTokenCount'] : 0,
+            "answer" => isset($answer["content"])
+                ? $this->parse_response($answer["content"])
+                : [],
+            "promptTokenCount" => isset($answer["promptTokenCount"])
+                ? $answer["promptTokenCount"]
+                : 0,
+            "responseTokenCount" => isset($answer["responseTokenCount"])
+                ? $answer["responseTokenCount"]
+                : 0,
+            "totalTokenCount" => isset($answer["totalTokenCount"])
+                ? $answer["totalTokenCount"]
+                : 0,
         ];
         return $response;
     }
@@ -263,13 +306,15 @@ class openai implements provider_interface {
         foreach ($lines as $line) {
             $line = trim($line);
             if (!empty($line)) {
-                $cleanlines[] = $this->get_course_from_proper_answer($this->get_proper_answer($line));
+                $cleanlines[] = $this->get_course_from_proper_answer(
+                    $this->get_proper_answer($line)
+                );
             }
         }
 
         // Filter out items where id is 0 or not set.
-        return array_filter($cleanlines, function($item) {
-            return isset($item['id']) && $item['id'] != 0;
+        return array_filter($cleanlines, function ($item) {
+            return isset($item["id"]) && $item["id"] != 0;
         });
     }
 
@@ -280,10 +325,10 @@ class openai implements provider_interface {
      * @return array Structured response with ID and content
      */
     public function get_proper_answer($originalstring) {
-        preg_match('/(\d+)/', $originalstring, $matches);
-        $id = isset($matches[1]) ? (int)$matches[1] : null;
-        $cleanstring = preg_replace('/^\[\d+\]\s*/', '', $originalstring);
-        return ['id' => $id, 'content' => $cleanstring];
+        preg_match("/(\d+)/", $originalstring, $matches);
+        $id = isset($matches[1]) ? (int) $matches[1] : null;
+        $cleanstring = preg_replace("/^\[\d+\]\s*/", "", $originalstring);
+        return ["id" => $id, "content" => $cleanstring];
     }
 
     /**
@@ -295,18 +340,27 @@ class openai implements provider_interface {
     public function get_course_from_proper_answer(array $response) {
         global $DB;
         if ($response) {
-            if (isset($response['id'])) {
-                $course = $DB->get_record('course', ['id' => $response['id']]);
-                $viewurl = $course ? new \moodle_url('/course/view.php', ['id' => $response['id']]) : null;
+            if (isset($response["id"])) {
+                $course = $DB->get_record("course", ["id" => $response["id"]]);
+                $viewurl = $course
+                    ? new \moodle_url("/course/view.php", [
+                        "id" => $response["id"],
+                    ])
+                    : null;
                 return [
-                    'id' => $response['id'],
-                    'title' => $course ? $course->fullname : 'Unknown Course',
-                    'content' => $response['content'],
-                    'viewurl' => !is_null($viewurl) ? $viewurl->out() : null,
+                    "id" => $response["id"],
+                    "title" => $course ? $course->fullname : "Unknown Course",
+                    "content" => $response["content"],
+                    "viewurl" => !is_null($viewurl) ? $viewurl->out() : null,
                 ];
             }
         }
-        return ['id' => 0, 'title' => 'Unknown Course', 'content' => 'Unknown Course', 'viewurl' => null];
+        return [
+            "id" => 0,
+            "title" => "Unknown Course",
+            "content" => "Unknown Course",
+            "viewurl" => null,
+        ];
     }
 
     /**
@@ -319,12 +373,19 @@ class openai implements provider_interface {
      */
     public function data_initialization() {
         global $DB;
-        $courses = $DB->get_records('course', ['visible' => 1], 'id', 'id, fullname, shortname, summary');
+        $courses = $DB->get_records(
+            "course",
+            ["visible" => 1],
+            "id",
+            "id, fullname, shortname, summary"
+        );
 
         $chunksize = 1024;
 
         foreach ($courses as $j => $course) {
-            $coursecontent = !empty($course->summary) ? $course->summary : $course->fullname;
+            $coursecontent = !empty($course->summary)
+                ? $course->summary
+                : $course->fullname;
             $string = strip_tags($coursecontent);
 
             $stringlength = mb_strlen($string);
@@ -334,32 +395,35 @@ class openai implements provider_interface {
                 if (count($embeddingsdata) > 0) {
                     $contenthash = sha1($chunk);
                     $coursellm = [
-                        'title' => $course->fullname,
-                        'moduletype' => 'course',
-                        'moduleid' => $course->id,
-                        'content' => $chunk,
-                        'contenthash' => $contenthash,
-                        'embedding' => serialize($embeddingsdata),
-                        'timecreated' => time(),
-                        'timemodified' => time(),
+                        "title" => $course->fullname,
+                        "moduletype" => "course",
+                        "moduleid" => $course->id,
+                        "content" => $chunk,
+                        "contenthash" => $contenthash,
+                        "embedding" => serialize($embeddingsdata),
+                        "timecreated" => time(),
+                        "timemodified" => time(),
                     ];
 
-                    $isexists = $DB->get_record('block_terusrag', [
-                            'contenthash' => $contenthash,
-                            'moduleid' => $coursellm['moduleid'],
-                        ]
-                    );
+                    $isexists = $DB->get_record("block_terusrag", [
+                        "contenthash" => $contenthash,
+                        "moduleid" => $coursellm["moduleid"],
+                    ]);
 
                     if ($isexists) {
-                        $coursellm['id'] = $isexists->id;
-                        $DB->update_record('block_terusrag', (object)$coursellm);
+                        $coursellm["id"] = $isexists->id;
+                        $DB->update_record(
+                            "block_terusrag",
+                            (object) $coursellm
+                        );
                     } else {
-                        $DB->insert_record('block_terusrag', (object)$coursellm);
+                        $DB->insert_record(
+                            "block_terusrag",
+                            (object) $coursellm
+                        );
                     }
                 }
             }
         }
-
     }
-
 }

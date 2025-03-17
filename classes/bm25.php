@@ -24,10 +24,11 @@ namespace block_terusrag;
  * document relevance based on term frequency and inverse document frequency.
  *
  * @package   block_terusrag
- * @copyright 2023 Terus Learning
+ * @copyright  2025 Terus e-Learning
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class bm25 {
+
     /** @var int Size of the corpus (number of documents) */
     private $corpussize = 0;
 
@@ -81,11 +82,20 @@ class bm25 {
         $doclength = $this->doclengths[$docid];
 
         foreach (array_unique($querytokens) as $token) {
-            $nqi = isset($this->docfrequencies[$token]) ? count($this->docfrequencies[$token]) : 0;
-            $fqi = isset($this->docfrequencies[$token][$docid]) ? $this->docfrequencies[$token][$docid] : 0;
+            $nqi = isset($this->docfrequencies[$token])
+                ? count($this->docfrequencies[$token])
+                : 0;
+            $fqi = isset($this->docfrequencies[$token][$docid])
+                ? $this->docfrequencies[$token][$docid]
+                : 0;
             $idf = log(($this->corpussize - $nqi + 0.5) / ($nqi + 0.5) + 1);
-            $score += $idf * ($fqi * ($this->k1 + 1)) / ($fqi + $this->k1 * (1 - $this->b + $this->b *
-                      ($doclength / $this->avgdoclength)));
+            $score +=
+                ($idf * ($fqi * ($this->k1 + 1))) /
+                ($fqi +
+                    $this->k1 *
+                        (1 -
+                            $this->b +
+                            $this->b * ($doclength / $this->avgdoclength)));
         }
 
         return $score;
