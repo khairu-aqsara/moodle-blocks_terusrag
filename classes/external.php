@@ -70,6 +70,11 @@ class block_terusrag_external extends external_api {
         } else if ($provider === 'openai') {
             $openai = new \block_terusrag\openai();
             $response = $openai->process_rag_query($params['query']);
+        } else if ($provider === 'ollama') {
+            $ollama = new \block_terusrag\ollama();
+            $response = $ollama->process_rag_query($params['query']);
+        } else {
+            throw new coding_exception('Unsupported AI provider: ' . $provider);
         }
 
         if (!isset($response['answer'])) {

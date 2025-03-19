@@ -53,12 +53,27 @@ $openaiembeddingmodels = [
 $availableai = [
     'gemini' => 'Google Gemini',
     'openai' => 'OpenAI',
+    'ollama' => 'Ollama',
 ];
 
 $promptoptimize = [
     'yes' => 'Yes',
     'no' => 'No',
 ];
+
+$ollamamodels = [
+    'qwen2.5' => 'Qwen 2.5',
+    'llama3:8b' => 'Llama 3:8B',
+    'deepseek-r1:7b' => 'Deepseek R1:7B',
+    'smollm2' => 'SmolLM2',
+];
+$ollamaembeddingmodels = [
+    'nomic-embed-text' => 'nomic-embed-text',
+    'all-minilm:33m' => 'Mini LM:33m',
+    'all-minilm:22m' => 'Mini LM:22M',
+];
+
+
 
 if ($hassiteconfig) {
 
@@ -84,28 +99,28 @@ if ($hassiteconfig) {
         get_string('gemini_api_key_desc', 'block_terusrag'),
         '',
         PARAM_TEXT));
-    $settings->hide_if('block_terusrag/gemini_api_key', 'block_terusrag/aiprovider', 'eq', 'openai');
+    $settings->hide_if('block_terusrag/gemini_api_key', 'block_terusrag/aiprovider', 'neq', 'gemini');
 
     $settings->add(new admin_setting_configtext('block_terusrag/gemini_endpoint',
         get_string('gemini_endpoint', 'block_terusrag'),
         get_string('gemini_endpoint_desc', 'block_terusrag'),
         'https://generativelanguage.googleapis.com',
         PARAM_URL));
-    $settings->hide_if('block_terusrag/gemini_endpoint', 'block_terusrag/aiprovider', 'eq', 'openai');
+    $settings->hide_if('block_terusrag/gemini_endpoint', 'block_terusrag/aiprovider', 'neq', 'gemini');
 
     $settings->add(new admin_setting_configselect('block_terusrag/gemini_model_chat',
         get_string('gemini_model_chat', 'block_terusrag'),
         get_string('gemini_model_chat_desc', 'block_terusrag'),
         'gemini-2.0-flash',
         $geminimodels));
-    $settings->hide_if('block_terusrag/gemini_model_chat', 'block_terusrag/aiprovider', 'eq', 'openai');
+    $settings->hide_if('block_terusrag/gemini_model_chat', 'block_terusrag/aiprovider', 'neq', 'gemini');
 
     $settings->add(new admin_setting_configselect('block_terusrag/gemini_model_embedding',
         get_string('gemini_model_embedding', 'block_terusrag'),
         get_string('gemini_model_embedding_desc', 'block_terusrag'),
         'text-embedding-004',
         $geminiembeddingmodels));
-    $settings->hide_if('block_terusrag/gemini_model_embedding', 'block_terusrag/aiprovider', 'eq', 'openai');
+    $settings->hide_if('block_terusrag/gemini_model_embedding', 'block_terusrag/aiprovider', 'neq', 'gemini');
 
     // OpenAI Settings.
     $settings->add(new admin_setting_heading('block_terusrag/openaisettings',
@@ -117,30 +132,66 @@ if ($hassiteconfig) {
         get_string('openai_api_key_desc', 'block_terusrag'),
         '',
         PARAM_TEXT));
-    $settings->hide_if('block_terusrag/openai_api_key', 'block_terusrag/aiprovider', 'eq', 'gemini');
+    $settings->hide_if('block_terusrag/openai_api_key', 'block_terusrag/aiprovider', 'neq', 'openai');
 
     $settings->add(new admin_setting_configtext('block_terusrag/openai_endpoint',
         get_string('openai_endpoint', 'block_terusrag'),
         get_string('openai_endpoint_desc', 'block_terusrag'),
         'https://api.openai.com/v1',
         PARAM_URL));
-    $settings->hide_if('block_terusrag/openai_endpoint', 'block_terusrag/aiprovider', 'eq', 'gemini');
+    $settings->hide_if('block_terusrag/openai_endpoint', 'block_terusrag/aiprovider', 'neq', 'openai');
 
     $settings->add(new admin_setting_configselect('block_terusrag/openai_model_chat',
         get_string('openai_model_chat', 'block_terusrag'),
         get_string('openai_model_chat_desc', 'block_terusrag'),
         'gpt-4',
         $openaimodels));
-    $settings->hide_if('block_terusrag/openai_model_chat', 'block_terusrag/aiprovider', 'eq', 'gemini');
+    $settings->hide_if('block_terusrag/openai_model_chat', 'block_terusrag/aiprovider', 'neq', 'openai');
 
     $settings->add(new admin_setting_configselect('block_terusrag/openai_model_embedding',
         get_string('openai_model_embedding', 'block_terusrag'),
         get_string('openai_model_embedding_desc', 'block_terusrag'),
         'text-embedding-3-small',
         $openaiembeddingmodels));
-    $settings->hide_if('block_terusrag/openai_model_embedding', 'block_terusrag/aiprovider', 'eq', 'gemini');
+    $settings->hide_if('block_terusrag/openai_model_embedding', 'block_terusrag/aiprovider', 'neq', 'openai');
 
     // End of OpenAI Settings.
+
+    // Ollama Settings.
+    $settings->add(new admin_setting_heading('block_terusrag/ollamasettings',
+        get_string('ollamasettings', 'block_terusrag'),
+        get_string('ollamasettings_desc', 'block_terusrag')));
+
+    $settings->add(new admin_setting_configtext('block_terusrag/ollama_api_key',
+        get_string('ollama_api_key', 'block_terusrag'),
+        get_string('ollama_api_key_desc', 'block_terusrag'),
+        '',
+        PARAM_TEXT));
+    $settings->hide_if('block_terusrag/ollama_api_key', 'block_terusrag/aiprovider', 'neq', 'ollama');
+
+    $settings->add(new admin_setting_configtext('block_terusrag/ollama_endpoint',
+        get_string('ollama_endpoint', 'block_terusrag'),
+        get_string('ollama_endpoint_desc', 'block_terusrag'),
+        'https://api.ollama.com/v1',
+        PARAM_URL));
+    $settings->hide_if('block_terusrag/ollama_endpoint', 'block_terusrag/aiprovider', 'neq', 'ollama');
+
+    $settings->add(new admin_setting_configselect('block_terusrag/ollama_model_chat',
+        get_string('ollama_model_chat', 'block_terusrag'),
+        get_string('ollama_model_chat_desc', 'block_terusrag'),
+        'ollama-default',
+        $ollamamodels));
+    $settings->hide_if('block_terusrag/ollama_model_chat', 'block_terusrag/aiprovider', 'neq', 'ollama');
+
+    $settings->add(new admin_setting_configselect('block_terusrag/ollama_model_embedding',
+        get_string('ollama_model_embedding', 'block_terusrag'),
+        get_string('ollama_model_embedding_desc', 'block_terusrag'),
+        'text-embedding-3-small',
+        $ollamaembeddingmodels));
+    $settings->hide_if('block_terusrag/ollama_model_embedding', 'block_terusrag/aiprovider', 'neq', 'ollama');
+
+    // End of Ollama Settings.
+
 
     // Vector Database Settings.
     $settings->add(new admin_setting_heading('block_terusrag/vectordbsettings',
