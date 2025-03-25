@@ -4,7 +4,7 @@
 ![Terus RAG Block for Moodle](./screenshot/rag_block.jpg)
 
 ## Overview
-This Moodle block plugin implements Retrieval-Augmented Generation (RAG) functionality, allowing users to query course content using large language models. The plugin integrates with either Google's Gemini API or OpenAI to provide intelligent responses based on your course data.
+This Moodle block plugin implements Retrieval-Augmented Generation (RAG) functionality, allowing users to query course content using large language models. The plugin integrates with either Google's Gemini API, Ollama or OpenAI to provide intelligent responses based on your course data.
 
 ## Features
 - Implements RAG (Retrieval-Augmented Generation) architecture
@@ -23,7 +23,7 @@ This Moodle block plugin implements Retrieval-Augmented Generation (RAG) functio
 ## Ai Provider Feature Implementation 
 - [x] Gemini
 - [x] OpenAI
-- [ ] Ollama
+- [x] Ollama
 - [ ] Anthropic
 
 
