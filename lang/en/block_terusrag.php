@@ -101,3 +101,16 @@ $string['openai_model_chat'] = 'Chat Model';
 $string['openai_model_chat_desc'] = 'Select the OpenAI model to use for chat interactions';
 $string['openai_model_embedding'] = 'Embedding Model';
 $string['openai_model_embedding_desc'] = 'Select the model to use for generating embeddings';
+
+// Ollama.
+$string['ollamasettings'] = 'Ollama Settings';
+$string['ollamasettings_desc'] = 'Configure the settings for Ollama integration';
+$string['ollama_api_key'] = 'Ollama API Key';
+$string['ollama_api_key_desc'] = 'Enter your Ollama API key';
+$string['ollama_endpoint'] = 'Ollama API Endpoint';
+$string['ollama_endpoint_desc'] = 'The base URL for Ollama API requests';
+$string['ollama_model_chat'] = 'Chat Model';
+$string['ollama_model_chat_desc'] = 'Select the Ollama model to use for chat interactions';
+$string['ollama_model_embedding'] = 'Embedding Model';
+$string['ollama_model_embedding_desc'] = 'Select the model to use for generating embeddings';
+

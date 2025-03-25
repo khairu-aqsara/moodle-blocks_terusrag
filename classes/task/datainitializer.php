@@ -66,6 +66,9 @@ class datainitializer extends \core\task\scheduled_task {
         } else if ($provider === 'openai') {
             $openaiprovider = new \block_terusrag\openai();
             $openaiprovider->data_initialization();
+        } else if ($provider === 'ollama') {
+            $ollamaprovider = new \block_terusrag\ollama();
+            $ollamaprovider->data_initialization();
         } else {
             mtrace('Unsupported AI provider: ' . $provider);
         }
