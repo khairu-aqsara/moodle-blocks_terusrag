@@ -26,6 +26,7 @@
 $string['pluginname'] = 'Terus RAG';
 $string['terusrag:addinstance'] = 'Add a new Terus RAG block';
 $string['terusrag:myaddinstance'] = 'Add a new Terus RAG block to the My Moodle page';
+$string['terusrag:managesettings'] = 'Manage Terus RAG settings';
 $string['blocktitle'] = 'Block title';
 $string['blocktitle_help'] = 'The title that appears at the top of the Terus RAG block';
 
@@ -56,18 +57,15 @@ $string['vectordb_username'] = 'Database Username';
 $string['vectordb_username_desc'] = 'Username for authenticating with the vector database';
 $string['vectordb_password'] = 'Database Password';
 $string['vectordb_password_desc'] = 'Password for authenticating with the vector database';
-
-$string['promptsettings'] = 'Prompt Settings';
-$string['promptsettings_desc'] = 'Configure the system prompt and other prompt-related settings';
-$string['system_prompt'] = 'System Prompt';
-$string['system_prompt_desc'] = 'The base prompt that guides the AI\'s behavior and responses';
-$string['system_prompt_default'] = 'You are an AI tutor assistant helping students understand course materials. Provide clear, accurate, and helpful responses based on the course content provided. If unsure, acknowledge the uncertainty and suggest where to find more information.';
-
 $string['promptsettings'] = 'Prompt Settings';
 $string['promptsettings_desc'] = 'Configure system prompts';
 $string['system_prompt'] = 'System Prompt';
 $string['system_prompt_desc'] = 'Base system prompt for RAG responses';
 $string['system_prompt_default'] = 'You are a Moodle assistant specialized in answering questions about course materials. Use only the provided context to construct your response.';
+$string['stopwords_not_found'] = 'Stop words file not found';
+$string['unknowncourse'] = 'Unknown course';
+$string['noresultsfound'] = 'No results found';
+$string['notokeninformation'] = 'No token information available';
 
 // Scheduled task strings.
 $string['datainitializer'] = 'Data Initializer';
