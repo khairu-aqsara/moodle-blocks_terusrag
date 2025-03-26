@@ -40,7 +40,8 @@ graph TB
         C --> D[AI Provider]
         D -->|Gemini| D1[Gemini Embeddings]
         D -->|OpenAI| D2[OpenAI Embeddings]
-        D1 & D2 --> E{Vector Storage}
+        D -->|Ollama| D3[Ollama Embeddings]
+        D1 & D2 & D3 --> E{Vector Storage}
         E -->|Simple| F[Moodle DB]
         E -->|Scalable| G[ChromaDB]
         E -->|Cloud| H[Supabase]
@@ -58,7 +59,8 @@ graph TB
         M --> N{AI Provider}
         N -->|Gemini| N1[Gemini API]
         N -->|OpenAI| N2[OpenAI API]
-        N1 & N2 --> O[Response Formatter]
+        N -->|Ollama| N3[Ollama API]
+        N1 & N2 & N3 --> O[Response Formatter]
         O --> P[UI Display]
     end
 
