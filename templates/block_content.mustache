@@ -23,10 +23,24 @@
     * none
 
     Data attributes required for JS:
-    * none
+    * data-courseid - The course ID
+    * data-region="query-input" - Query input field
+    * data-region="response-area" - Response display area
+    * data-region="response-content" - Response content container
+    * data-region="response-text" - Response text display
+    * data-region="response-metadata" - Response metadata display
+    * data-region="loading-indicator" - Loading indicator
+    * data-region="placeholder" - Empty state placeholder
 
     Context variables required for this template:
-    * courseid
+    * courseid - integer: The ID of the course
+    * hasresponse - boolean: Whether there is a response to display
+
+    Example context (json):
+    {
+        "courseid": 123,
+        "hasresponse": false
+    }
 }}
 <div class="block_terusrag" data-courseid="{{courseid}}">
     <div class="rag-interface d-flex flex-column">
@@ -52,10 +66,10 @@
         <form class="rag-form mt-auto" action="#">
             <div class="input-group">
                 <input 
-                    class="form-control rag-query" 
-                    rows="2" 
+                    type="text"
+                    class="form-control rag-query"
                     placeholder="{{#str}}queryplaceholder, block_terusrag{{/str}}"
-                    data-region="query-input"/>
+                    data-region="query-input">
                 <div class="input-group-append">
                     <button type="submit" class="btn btn-outline-secondary rag-submit h-100" data-action="submit-query">
                         {{#str}}askbutton, block_terusrag{{/str}}
