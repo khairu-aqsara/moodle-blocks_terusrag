@@ -117,7 +117,11 @@ The plugin includes scheduled tasks to maintain and update the vector embeddings
 1. Content Indexing Task
    - Runs daily by default
    - Scans course content for changes
+   - Processes course content which includes:
+     * Course summary (primary source)
+     * Course full name (fallback if summary is empty)
    - Updates vector embeddings for modified content
+   - Re-indexes content when course information changes
 
 2. Running Tasks Manually
    - Via CLI:

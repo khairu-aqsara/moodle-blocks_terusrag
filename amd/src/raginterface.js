@@ -127,7 +127,7 @@ define(['core/ajax', 'core/notification', 'core/str'],
                         return content;
                     }).join('');
                 } else {
-                    responseText.innerHTML = '<p>No results found.</p>';
+                    responseText.innerHTML = '<p>'+Str.get_string('noresultsfound', 'block_terusrag')+'</p>';
                 }
 
                 // Show metadata
@@ -147,7 +147,7 @@ define(['core/ajax', 'core/notification', 'core/str'],
                         return;
                     }).catch(Notification.exception);
                 } else {
-                    responseMetadata.innerHTML = '<div class="token-info">No token information available</div>';
+                    responseMetadata.innerHTML = '<div class="token-info">'+Str.get_string('notokeninformation', 'block_terusrag')+'</div>';
                 }
             },
             fail: function(error) {

@@ -337,71 +337,88 @@ class ollama implements provider_interface {
      */
     public function get_top_ranked_chunks(string $query): array {
         global $DB;
-        // 1. Generate embedding for the query.
+
+        // Generate embedding for the query.
         $queryembeddingresponse = $this->get_embedding($query);
+        $queryembedding = $queryembeddingresponse;
 
-        $queryembedding = $queryembeddingresponse; // Extract the actual embedding values.
-        // 2. Retrieve all content chunks from the database.
-        $contentchunks = $DB->get_records(
-            "block_terusrag",
-            [],
-            "",
-            "id, content, embedding"
-        );
-
-        // 3. Calculate cosine similarity between the query embedding and each content chunk embedding.
+        // Process chunks in batches to manage memory.
+        $batchsize = 500;
         $chunkscores = [];
-        foreach ($contentchunks as $chunk) {
-            $chunkembedding = unserialize($chunk->embedding); // Unserialize the embedding.
+        $bm25scores = [];
+        $contentarray = [];
+        $sql = "SELECT id, content, embedding FROM {block_terusrag}";
+        $rs = $DB->get_recordset_sql($sql);
+
+        try {
+            $batch = [];
+            $llm = new llm();
+            $bm25 = new bm25([]);
+
+            foreach ($rs as $record) {
+                $batch[] = $record;
+                $contentarray[$record->id] = $record->content;
+
+                if (count($batch) >= $batchsize) {
+                    $this->process_chunk_batch($batch, $queryembedding, $query, $llm, $bm25, $chunkscores, $bm25scores);
+                    $batch = [];
+                    gc_collect_cycles();
+                }
+            }
+
+            // Process remaining chunks.
+            if (!empty($batch)) {
+                $this->process_chunk_batch($batch, $queryembedding, $query, $llm, $bm25, $chunkscores, $bm25scores);
+            }
+
+            // Hybrid scoring and ranking.
+            $hybridscores = [];
+            foreach ($chunkscores as $chunkid => $cosinesimilarity) {
+                $bm25score = $bm25scores[$chunkid] ?? 0;
+                $hybridscores[$chunkid] = 0.7 * $cosinesimilarity + 0.3 * $bm25score;
+            }
+            arsort($hybridscores);
+
+            // Select top 5 chunks.
+            $topnchunkids = array_slice(array_keys($hybridscores), 0, 5, true);
+            $topnchunks = [];
+
+            foreach ($topnchunkids as $chunkid) {
+                $topnchunks[] = [
+                    "content" => $contentarray[$chunkid],
+                    "id" => $chunkid,
+                ];
+            }
+
+            return $topnchunks;
+
+        } finally {
+            $rs->close();
+        }
+    }
+
+    /**
+     * Process a batch of chunks for similarity scoring
+     *
+     * @param array $batch Array of database records
+     * @param array $queryembedding Query embedding vector
+     * @param string $query Original query string
+     * @param llm $llm LLM helper instance
+     * @param bm25 $bm25 BM25 ranking instance
+     * @param array &$chunkscores Reference to chunk scores array
+     * @param array &$bm25scores Reference to BM25 scores array
+     */
+    protected function process_chunk_batch($batch, $queryembedding, $query, $llm, $bm25, &$chunkscores, &$bm25scores) {
+        foreach ($batch as $chunk) {
+            $chunkembedding = unserialize($chunk->embedding);
             if ($chunkembedding) {
-                $llm = new llm();
-                $similarity = $llm->cosine_similarity(
-                    $queryembedding,
-                    $chunkembedding
-                );
-                $chunkscores[$chunk->id] = $similarity;
+                $chunkscores[$chunk->id] = $llm->cosine_similarity($queryembedding, $chunkembedding);
+                $bm25scores[$chunk->id] = $bm25->score($query, $chunk->content, $chunk->id);
             } else {
-                $chunkscores[$chunk->id] = 0; // If embedding is null, assign a score of 0.
+                $chunkscores[$chunk->id] = 0;
+                $bm25scores[$chunk->id] = 0;
             }
         }
-
-        // 4. Sort the content chunks by cosine similarity.
-        arsort($chunkscores);
-
-        // 5. BM25 Re-ranking (Example implementation - adjust as needed).
-        $bm25 = new bm25(array_column((array) $contentchunks, "content", "id"));
-        $bm25scores = [];
-        foreach ($contentchunks as $chunk) {
-            $bm25scores[$chunk->id] = $bm25->score(
-                $query,
-                $chunk->content,
-                $chunk->id
-            );
-        }
-
-        // 6. Hybrid Scoring and Re-ranking.
-        $hybridscores = [];
-        foreach ($chunkscores as $chunkid => $cosinesimilarity) {
-            $bm25score = isset($bm25scores[$chunkid])
-                ? $bm25scores[$chunkid]
-                : 0;
-            $hybridscores[$chunkid] =
-                0.7 * $cosinesimilarity + 0.3 * $bm25score;
-        }
-        arsort($hybridscores);
-
-        // 7. Select top N chunks.
-        $topnchunkids = array_slice(array_keys($hybridscores), 0, 5, true);
-        $topnchunks = [];
-
-        foreach ($topnchunkids as $chunkid) {
-            $topnchunks[] = [
-                "content" => $contentchunks[$chunkid]->content,
-                "id" => $chunkid,
-            ];
-        }
-
-        return $topnchunks;
     }
 
     /**
@@ -414,78 +431,119 @@ class ollama implements provider_interface {
      */
     public function data_initialization() {
         global $DB;
-        $courses = $DB->get_records(
-            "course",
-            ["visible" => 1],
-            "id",
-            "id, fullname, shortname, summary"
-        );
 
+        // Process courses in chunks of 100 to manage memory.
+        $batchsize = 100;
+        $lastprocessedtime = get_config('block_terusrag', 'last_processed_time') ?? 0;
+        $currenttime = time();
         $chunksize = 1024;
-        $chunk = [];
-        $coursesindex = [];
-        foreach ($courses as $j => $course) {
-            $coursecontent = !empty($course->summary)
-                ? $course->summary
-                : $course->fullname;
-            $string = strip_tags($coursecontent);
-            $contenthash = sha1($string);
 
-            $coursesindex[$j] = [
-                "title" => $course->fullname,
-                "moduletype" => "course",
-                "moduleid" => $course->id,
-                "content" => $string,
-                "contenthash" => $contenthash,
-                "embedding" => "",
-                "chunkindex" => [],
-                "timecreated" => time(),
-                "timemodified" => time(),
-            ];
+        $sql = "SELECT c.id, c.fullname, c.shortname, c.summary, c.timemodified"
+             . " FROM {course} c"
+             . " WHERE c.visible = 1"
+             . " AND c.timemodified > ?"
+             . " ORDER BY c.id";
 
-            $stringlength = mb_strlen($string);
-            for ($i = 0; $i < $stringlength; $i += $chunksize) {
-                $chunkindex = count($chunk);
-                $chunk[] = mb_substr($string, $i, $chunksize);
-                $coursesindex[$j]["chunkindex"][] = $chunkindex;
-            }
-        }
+        $rs = $DB->get_recordset_sql($sql, [$lastprocessedtime]);
 
-        $embeddingsdata = $this->get_embedding($chunk);
-        if (count($embeddingsdata) > 0) {
-            foreach ($embeddingsdata as $i => $embedding) {
-                // Extract values or use the embedding directly if it's already the values array.
-                $values =
-                    is_array($embedding) && isset($embedding["values"])
-                        ? $embedding["values"]
-                        : $embedding;
-                // Find which course this embedding belongs to.
-                foreach ($coursesindex as $coursekey => &$coursedata) {
-                    if (in_array($i, $coursedata["chunkindex"])) {
-                        // Add this specific embedding to the course data with its chunk index as key.
-                        if (!isset($coursedata["embeddings"])) {
-                            $coursedata["embeddings"] = [];
-                        }
-                        // Store embedding with its index as key.
-                        $coursedata["embedding"] = serialize($values);
-                        break; // Once found, no need to check other courses.
-                    }
+        $coursebatch = [];
+        $processedcount = 0;
+
+        try {
+            foreach ($rs as $course) {
+                $coursecontent = !empty($course->summary) ? $course->summary : $course->fullname;
+                $string = strip_tags($coursecontent);
+
+                // Process in batches to optimize API calls and memory usage.
+                $coursebatch[] = [
+                    'content' => $string,
+                    'title' => $course->fullname,
+                    'moduleid' => $course->id,
+                    'timemodified' => $course->timemodified,
+                ];
+
+                if (count($coursebatch) >= $batchsize) {
+                    $this->process_course_batch($coursebatch, $chunksize);
+                    $coursebatch = [];
+                    $processedcount += $batchsize;
+
+                    // Free up memory.
+                    gc_collect_cycles();
                 }
             }
 
-            foreach ($coursesindex as $coursellm) {
-                $hash = $coursellm["contenthash"];
-                $isexists = $DB->get_record("block_terusrag", [
-                    "contenthash" => $hash,
-                    "moduleid" => $coursellm["moduleid"],
+            // Process any remaining courses.
+            if (!empty($coursebatch)) {
+                $this->process_course_batch($coursebatch, $chunksize);
+                $processedcount += count($coursebatch);
+            }
+
+            // Update last processed time.
+            set_config('last_processed_time', $currenttime, 'block_terusrag');
+
+        } finally {
+            $rs->close();
+        }
+    }
+
+    /**
+     * Process a batch of courses for embedding generation
+     *
+     * @param array $coursebatch Array of courses to process
+     * @param int $chunksize Size of content chunks
+     * @return void
+     */
+    protected function process_course_batch($coursebatch, $chunksize) {
+        global $DB;
+
+        $chunks = [];
+        $chunkmap = [];  // Maps chunk index to course data.
+
+        // Prepare chunks for batch embedding.
+        foreach ($coursebatch as $index => $coursedata) {
+            $string = $coursedata['content'];
+            $stringlength = mb_strlen($string);
+
+            for ($i = 0; $i < $stringlength; $i += $chunksize) {
+                $chunkindex = count($chunks);
+                $chunk = mb_substr($string, $i, $chunksize);
+                $chunks[] = $chunk;
+                $chunkmap[$chunkindex] = [
+                    'title' => $coursedata['title'],
+                    'moduleid' => $coursedata['moduleid'],
+                    'content' => $chunk,
+                    'contenthash' => sha1($chunk),
+                ];
+            }
+        }
+
+        // Get embeddings for all chunks in batch.
+        if (!empty($chunks)) {
+            $embeddingsdata = $this->get_embedding($chunks);
+
+            // Process each embedding and update database.
+            foreach ($embeddingsdata as $i => $embedding) {
+                if (!isset($chunkmap[$i])) {
+                    continue;
+                }
+
+                $coursellm = $chunkmap[$i];
+                $coursellm['embedding'] = serialize($embedding);
+                $coursellm['timecreated'] = time();
+                $coursellm['timemodified'] = time();
+                $coursellm['moduletype'] = 'course';
+
+                // Check if record exists and update/insert accordingly.
+                $record = $DB->get_record('block_terusrag', [
+                    'contenthash' => $coursellm['contenthash'],
+                    'moduleid' => $coursellm['moduleid'],
                 ]);
-                if ($isexists) {
-                    $coursellm["id"] = $isexists->id;
-                    unset($coursellm["chunkindex"]);
-                    $DB->update_record("block_terusrag", (object) $coursellm);
+
+                if ($record) {
+                    $coursellm['id'] = $record->id;
+                    $DB->update_record('block_terusrag', (object)$coursellm);
                 } else {
-                    unset($coursellm["chunkindex"]);
-                    $DB->insert_record("block_terusrag", (object) $coursellm);
+                    $DB->insert_record('block_terusrag', (object)$coursellm);
                 }
             }
         }
