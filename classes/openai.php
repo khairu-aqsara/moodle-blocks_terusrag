@@ -210,8 +210,22 @@ class openai implements provider_interface {
         try {
             $batch = [];
             $llm = new llm();
-            $bm25 = new bm25([]);
+            $documents = [];
 
+            // First pass - collect documents for BM25 indexing.
+            foreach ($rs as $record) {
+                $documents[$record->id] = $record->content;
+                $contentarray[$record->id] = $record->content;
+            }
+
+            // Initialize BM25 with collected documents.
+            $bm25 = new bm25($documents);
+
+            // Reset recordset for second pass.
+            $rs->close();
+            $rs = $DB->get_recordset_sql($sql);
+
+            // Second pass - process chunks.
             foreach ($rs as $record) {
                 $batch[] = $record;
                 $contentarray[$record->id] = $record->content;

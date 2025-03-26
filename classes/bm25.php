@@ -54,6 +54,13 @@ class bm25 {
      */
     public function __construct(array $documents) {
         $this->corpussize = count($documents);
+
+        // Handle empty documents array.
+        if ($this->corpussize === 0) {
+            $this->avgdoclength = 0;
+            return;
+        }
+
         foreach ($documents as $docid => $document) {
             $this->doclengths[$docid] = str_word_count($document);
             $this->avgdoclength += $this->doclengths[$docid];
@@ -65,6 +72,8 @@ class bm25 {
                 $this->docfrequencies[$token][$docid] = $count;
             }
         }
+
+        // Calculate average document length only if we have documents.
         $this->avgdoclength /= $this->corpussize;
     }
 
@@ -77,9 +86,19 @@ class bm25 {
      * @return float The BM25 score
      */
     public function score(string $query, string $document, int $docid): float {
+        // Return 0 score if corpus is empty or document doesn't exist.
+        if ($this->corpussize === 0 || !isset($this->doclengths[$docid])) {
+            return 0.0;
+        }
+
         $score = 0.0;
         $querytokens = str_word_count($query, 1);
         $doclength = $this->doclengths[$docid];
+
+        // Return 0 score if average document length is 0 to prevent division by zero.
+        if ($this->avgdoclength === 0) {
+            return 0.0;
+        }
 
         foreach (array_unique($querytokens) as $token) {
             $nqi = isset($this->docfrequencies[$token])
@@ -89,13 +108,16 @@ class bm25 {
                 ? $this->docfrequencies[$token][$docid]
                 : 0;
             $idf = log(($this->corpussize - $nqi + 0.5) / ($nqi + 0.5) + 1);
-            $score +=
-                ($idf * ($fqi * ($this->k1 + 1))) /
-                ($fqi +
-                    $this->k1 *
-                        (1 -
-                            $this->b +
-                            $this->b * ($doclength / $this->avgdoclength)));
+
+            // Calculate denominator first to check for zero.
+            $denominator = $fqi + $this->k1 * (1 - $this->b + $this->b * ($doclength / $this->avgdoclength));
+
+            // Skip this term if denominator would be zero.
+            if ($denominator === 0) {
+                continue;
+            }
+
+            $score += ($idf * ($fqi * ($this->k1 + 1))) / $denominator;
         }
 
         return $score;

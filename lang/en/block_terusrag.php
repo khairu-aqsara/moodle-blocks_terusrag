@@ -61,7 +61,11 @@ $string['promptsettings'] = 'Prompt Settings';
 $string['promptsettings_desc'] = 'Configure system prompts';
 $string['system_prompt'] = 'System Prompt';
 $string['system_prompt_desc'] = 'Base system prompt for RAG responses';
-$string['system_prompt_default'] = 'You are a Moodle assistant specialized in answering questions about course materials. Use only the provided context to construct your response.';
+$string['system_prompt_default'] = 'You are a Moodle assistant specializing in answering inquiries about materials. Rely solely on the given context to formulate your response Responses should adhere to the following format:
+
+[index] the context
+
+If the information is unknown, simply state "don\'t know."';
 $string['stopwords_not_found'] = 'Stop words file not found';
 $string['unknowncourse'] = 'Unknown course';
 $string['noresultsfound'] = 'No results found';
