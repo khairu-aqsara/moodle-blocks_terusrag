@@ -29,4 +29,4 @@ $plugin->version   = 2025032623;        // The current plugin version (Date: YYY
 $plugin->requires  = 2022111800;        // Requires this Moodle version (Moodle 4.1.3+).
 $plugin->component = 'block_terusrag'; // Full name of the plugin (used for diagnostics).
 $plugin->maturity = MATURITY_STABLE;
-$plugin->release = 'v1.0.0';
+$plugin->release = 'v1.0.2';
