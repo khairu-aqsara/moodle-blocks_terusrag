@@ -269,15 +269,16 @@ class openai implements provider_interface {
     }
 
     /**
-     * Process a batch of chunks for similarity scoring
+     * Process a batch of chunks for similarity scoring and ranking.
      *
-     * @param array $batch Array of database records
-     * @param array $queryembedding Query embedding vector
-     * @param string $query Original query string
-     * @param llm $llm LLM helper instance
-     * @param bm25 $bm25 BM25 ranking instance
-     * @param array &$chunkscores Reference to chunk scores array
-     * @param array &$bm25scores Reference to BM25 scores array
+     * @param array $batch Array of database records containing chunks to process
+     * @param array $queryembedding Query embedding vector for similarity comparison
+     * @param string $query Original query string for BM25 scoring
+     * @param llm $llm LLM helper instance for similarity calculations
+     * @param bm25 $bm25 BM25 ranking instance for text relevancy scoring
+     * @param array &$chunkscores Reference to array storing chunk similarity scores
+     * @param array &$bm25scores Reference to array storing BM25 scores
+     * @return void
      */
     protected function process_chunk_batch($batch, $queryembedding, $query, $llm, $bm25, &$chunkscores, &$bm25scores) {
         foreach ($batch as $chunk) {
