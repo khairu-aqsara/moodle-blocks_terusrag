@@ -86,5 +86,21 @@ function xmldb_block_terusrag_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2025031104, 'terusrag');
     }
 
+    if ($oldversion < 2025040512) {
+        // Get manager.
+        $table = new xmldb_table('block_terusrag');
+
+        // Remove existing unique key.
+        $key = new xmldb_key('contenthash', XMLDB_KEY_UNIQUE, ['contenthash']);
+        $dbman->drop_key($table, $key);
+
+        // Add new composite unique key.
+        $key = new xmldb_key('contenthash_moduleid', XMLDB_KEY_UNIQUE, ['contenthash', 'moduleid']);
+        $dbman->add_key($table, $key);
+
+        // Terusrag savepoint reached.
+        upgrade_block_savepoint(true, 2025040512, 'terusrag');
+    }
+
     return true;
 }

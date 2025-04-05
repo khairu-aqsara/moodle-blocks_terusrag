@@ -6,9 +6,14 @@
 ## Overview
 This Moodle block plugin implements Retrieval-Augmented Generation (RAG) functionality, allowing users to query course content using large language models. The plugin integrates with either Google's Gemini API, Ollama or OpenAI to provide intelligent responses based on your course data.
 
+### Searchable Content
+For now the plugin indexes and makes searchable the Course descriptions and summaries
+
+The content is automatically processed and indexed during the daily scheduled task, with immediate indexing occurring when content is created or modified.
+
 ## Features
 - Implements RAG (Retrieval-Augmented Generation) architecture
-- Integrates with Google's Gemini API and OpenAI
+- Integrates with Google's Gemini API, OpenAI, and Ollama
 - Supports vector embeddings for semantic search
 - Uses hybrid ranking with BM25 and cosine similarity
 - Automatically processes and indexes course content
@@ -72,7 +77,7 @@ graph TB
 
 ## AI Providers
 
-This plugin supports two AI providers for handling RAG operations:
+This plugin supports three AI providers for handling RAG operations:
 
 1. Google Gemini (Default)
    - Uses Gemini 2.0 Flash for chat completions
@@ -80,7 +85,7 @@ This plugin supports two AI providers for handling RAG operations:
    - Direct integration with Google AI Studio
    - Optimized for performance and cost-effectiveness
 
-2. OpenAI (Alternative)
+2. OpenAI
    - Supports GPT-4 and GPT-3.5 models
    - Multiple embedding model options:
      * text-embedding-3-large
@@ -88,6 +93,14 @@ This plugin supports two AI providers for handling RAG operations:
      * text-embedding-ada-002
    - Flexible API endpoint configuration
    - Enterprise-grade capabilities
+
+3. Ollama
+   - Supports multiple open-source models
+   - Available embedding models:
+     * nomic-embed-text
+     * all-minilm (33M and 22M variants)
+   - Local deployment option
+   - Cost-effective solution
 
 ## Installation
 1. Copy the terusrag folder into your Moodle blocks directory
@@ -98,20 +111,25 @@ This plugin supports two AI providers for handling RAG operations:
 ## Requirements
 - Moodle 4.1.3 or later
 - PHP 7.4 or later
-- Access to either:
-  * Gemini API (for default provider)
-  * OpenAI API (for alternative provider)
+- Access to one of:
+  * Gemini API (default provider)
+  * OpenAI API
+  * Ollama API (local or remote instance)
 
 ## Configuration
 1. Go to Site Administration → Plugins → Blocks → Terus RAG
-2. Choose your preferred AI provider (Gemini or OpenAI)
+2. Choose your preferred AI provider (Gemini, OpenAI, or Ollama)
 3. For Gemini:
    - Obtain API key from Google AI Studio
    - Configure Gemini endpoint and model settings
 4. For OpenAI:
    - Obtain API key from OpenAI platform
    - Configure OpenAI endpoint and model preferences
-5. Save changes and initialize the data process
+5. For Ollama:
+   - Set up Ollama instance (local or remote)
+   - Configure Ollama endpoint and selected models
+   - Specify embedding model preferences
+6. Save changes and initialize the data process
 
 ## Scheduled Tasks
 The plugin includes scheduled tasks to maintain and update the vector embeddings of course content:
@@ -120,8 +138,12 @@ The plugin includes scheduled tasks to maintain and update the vector embeddings
    - Runs daily by default
    - Scans course content for changes
    - Processes course content which includes:
-     * Course summary (primary source)
-     * Course full name (fallback if summary is empty)
+     * Course descriptions and summaries
+     * Course section descriptions
+     * Resource descriptions and content
+     * Activity descriptions and content (assignments, quizzes, forums, etc.)
+     * Book and page module content
+     * Labels and HTML blocks content
    - Updates vector embeddings for modified content
    - Re-indexes content when course information changes
 

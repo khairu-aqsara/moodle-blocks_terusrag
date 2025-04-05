@@ -60,7 +60,7 @@ $string['vectordb_password_desc'] = 'Password for authenticating with the vector
 $string['promptsettings'] = 'Prompt Settings';
 $string['promptsettings_desc'] = 'Configure system prompts';
 $string['system_prompt'] = 'System Prompt';
-$string['system_prompt_desc'] = 'Base system prompt for RAG responses';
+$string['system_prompt_desc'] = 'Base system prompt for RAG responses (do not remove [index] from the prompt)';
 $string['system_prompt_default'] = 'You are a Moodle assistant specializing in answering inquiries about materials. Rely solely on the given context to formulate your response Responses should adhere to the following format:
 
 [index] the context
@@ -73,10 +73,6 @@ $string['notokeninformation'] = 'No token information available';
 
 // Scheduled task strings.
 $string['datainitializer'] = 'Data Initializer';
-$string['datainitializer_desc'] = 'Initialize data for the Terus RAG block';
-
-// Config.
-$string['config_title'] = 'Block title';
 
 // Frontend.
 $string['queryplaceholder'] = 'Type your question here...';
