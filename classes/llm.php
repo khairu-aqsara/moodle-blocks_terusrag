@@ -44,7 +44,7 @@ class llm {
         $normb = 0;
 
         foreach ($vectora as $key => $value) {
-            if(isset($vectorb[$key])) {
+            if (isset($vectorb[$key])) {
                 $dotproduct += $value * $vectorb[$key];
                 $norma += $value ** 2;
                 $normb += $vectorb[$key] ** 2;
