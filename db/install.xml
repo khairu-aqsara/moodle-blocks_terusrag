@@ -18,7 +18,7 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="contenthash" TYPE="unique" FIELDS="contenthash"/>
+        <KEY NAME="contenthash_moduleid" TYPE="unique" FIELDS="contenthash,moduleid"/>
       </KEYS>
     </TABLE>
   </TABLES>
