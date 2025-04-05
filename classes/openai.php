@@ -283,7 +283,7 @@ class openai implements provider_interface {
     protected function process_chunk_batch($batch, $queryembedding, $query, $llm, $bm25, &$chunkscores, &$bm25scores) {
         foreach ($batch as $chunk) {
             $chunkembedding = unserialize($chunk->embedding);
-            if ($chunkembedding) {
+            if ($chunkembedding && is_array($chunkembedding)) {
                 $chunkscores[$chunk->id] = $llm->cosine_similarity($queryembedding, $chunkembedding);
                 $bm25scores[$chunk->id] = $bm25->score($query, $chunk->content, $chunk->id);
             } else {
