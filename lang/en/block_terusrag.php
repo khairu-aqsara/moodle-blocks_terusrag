@@ -60,12 +60,14 @@ $string['vectordb_password_desc'] = 'Password for authenticating with the vector
 $string['promptsettings'] = 'Prompt Settings';
 $string['promptsettings_desc'] = 'Configure system prompts';
 $string['system_prompt'] = 'System Prompt';
-$string['system_prompt_desc'] = 'Base system prompt for RAG responses (do not remove [index] from the prompt)';
-$string['system_prompt_default'] = 'You are a Moodle assistant specializing in answering inquiries about materials. Rely solely on the given context to formulate your response Responses should adhere to the following format:
+$string['system_prompt_desc'] = 'Base system prompt for RAG responses (do not remove [the context id] from the prompt)';
+$string['system_prompt_default'] = 'You are a Moodle assistant specialized in answering questions about course materials. Use only the provided context to construct your response.
+Your response must be formatted as the following structure:
 
-[index] the context
+[the context id] Your comprehensive answer here
 
-If the information is unknown, simply state "don\'t know."';
+Separate information related to each topic with new line
+If the required information is not in the provided context or you are uncertain, explain why you are unable to get that information and say sorry.';
 $string['stopwords_not_found'] = 'Stop words file not found';
 $string['unknowncourse'] = 'Unknown course';
 $string['noresultsfound'] = 'No results found';
