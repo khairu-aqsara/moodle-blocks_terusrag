@@ -415,12 +415,12 @@ class ollama implements provider_interface {
      * Process a batch of chunks for similarity scoring and ranking.
      *
      * @param array $batch Array of database records containing chunks to process
-     * @param array $queryembedding Query embedding vector for similarity comparison
+     * @param array $queryembedding Query embedding vector for similarity comparison as a numeric array
      * @param string $query Original query string for BM25 scoring
-     * @param llm $llm LLM helper instance for similarity calculations
-     * @param bm25 $bm25 BM25 ranking instance for text relevancy scoring
-     * @param array &$chunkscores Reference to array storing chunk similarity scores
-     * @param array &$bm25scores Reference to array storing BM25 scores
+     * @param \block_terusrag\llm $llm LLM helper instance for similarity calculations
+     * @param \block_terusrag\bm25 $bm25 BM25 ranking instance for text relevancy scoring
+     * @param array &$chunkscores Reference to array storing chunk similarity scores, indexed by chunk ID
+     * @param array &$bm25scores Reference to array storing BM25 scores, indexed by chunk ID
      * @return void
      */
     protected function process_chunk_batch($batch, $queryembedding, $query, $llm, $bm25, &$chunkscores, &$bm25scores) {
