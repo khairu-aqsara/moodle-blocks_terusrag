@@ -85,6 +85,7 @@ class ollama implements provider_interface {
             "cache" => true,
             "module_cache" => "terusrag",
             "debug" => false,
+            "ignoresecurity" => (strpos($host, "localhost") !== false) ? true : false,
         ]);
         $this->httpclient->setHeader($this->headers);
         $this->httpclient->setopt([
@@ -119,6 +120,21 @@ class ollama implements provider_interface {
         }
 
         $data = json_decode($response, true);
+
+        if (is_null($data)) {
+            $errormessage = 'Unknown';
+            if (is_string($response)) {
+                $errormessage = $response;
+            }
+
+            throw new moodle_exception(
+                $errormessage
+            );
+        }
+
+        if (is_array($data) && array_key_exists('error', $data)) {
+            throw new moodle_exception($data['error']);
+        }
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new moodle_exception(
@@ -164,6 +180,21 @@ class ollama implements provider_interface {
         }
 
         $data = json_decode($response, true);
+
+        if (is_null($data)) {
+            $errormessage = 'Unknown';
+            if (is_string($response)) {
+                $errormessage = $response;
+            }
+
+            throw new moodle_exception(
+                $errormessage
+            );
+        }
+
+        if (is_array($data) && array_key_exists('error', $data)) {
+            throw new moodle_exception($data['error']);
+        }
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new moodle_exception(

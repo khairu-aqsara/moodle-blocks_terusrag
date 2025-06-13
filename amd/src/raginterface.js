@@ -153,6 +153,8 @@ define(['core/ajax', 'core/notification', 'core/str'],
             fail: function(error) {
                 console.error('Query submission failed:', error);
                 Notification.exception(error);
+                loadingIndicator.classList.add('hidden');
+                contentPlaceholder.classList.remove('hidden');
             }
         }]);
     };
