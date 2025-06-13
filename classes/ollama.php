@@ -111,7 +111,7 @@ class ollama implements provider_interface {
 
         $response = $this->httpclient->post(
             $this->host . "/api/embed/",
-            json_encode($payload) 
+            json_encode($payload)
         );
 
         if ($this->httpclient->get_errno()) {
@@ -131,7 +131,7 @@ class ollama implements provider_interface {
                 $errormessage
             );
         }
-        
+
         if (is_array($data) && array_key_exists('error', $data)) {
             throw new moodle_exception($data['error']);
         }
