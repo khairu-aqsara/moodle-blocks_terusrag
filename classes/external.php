@@ -101,7 +101,6 @@ class block_terusrag_external extends external_api {
                 'answer' => [],
                 'promptTokenCount' => 0,
                 'responseTokenCount' => 0,
-                'responseTokenCount' => 0,
                 'totalTokenCount' => 0,
                 'error' => get_string('general_error', 'block_terusrag'),
             ];
