@@ -1,0 +1,14 @@
+/* Styles for Terus Rag block */
+.block_terusrag .card-body {
+    padding: 1rem;
+}
+
+.block_terusrag .content {
+    margin: 0;
+    padding: 0.5rem 0;
+}
+
+.block_terusrag .footer {
+    margin-top: 0.5rem;
+    font-size: 0.9em;
+}

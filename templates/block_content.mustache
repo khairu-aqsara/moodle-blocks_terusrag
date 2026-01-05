@@ -1,0 +1,87 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template block_terusrag/block_content
+
+    Template for the Terus RAG block content.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * data-courseid - The course ID
+    * data-region="query-input" - Query input field
+    * data-region="response-area" - Response display area
+    * data-region="response-content" - Response content container
+    * data-region="response-text" - Response text display
+    * data-region="response-metadata" - Response metadata display
+    * data-region="loading-indicator" - Loading indicator
+    * data-region="placeholder" - Empty state placeholder
+
+    Context variables required for this template:
+    * courseid - integer: The ID of the course
+    * hasresponse - boolean: Whether there is a response to display
+
+    Example context (json):
+    {
+        "courseid": 123,
+        "hasresponse": false
+    }
+}}
+<div class="block_terusrag" data-courseid="{{courseid}}">
+    <div class="rag-interface d-flex flex-column">
+        <!-- Response area moved to the top for chat-like interface -->
+        <div class="rag-response-area mb-3 rounded p-3" data-region="response-area">
+            <div id="placeholder" data-region="placeholder">
+                <div class="d-flex justify-content-center align-items-center py-4 flex-column">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="6em" height="6em" viewBox="0 0 24 24"><g fill="none" stroke="#cccccc" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" color="#cccccc"><path d="M12 4.5a2.5 2.5 0 0 0-5 0a3 3 0 0 0-2.567 4.554a3.001 3.001 0 0 0 0 5.893A3 3 0 0 0 7 19.5a2.5 2.5 0 0 0 5-.001"/><path d="M12 19.5a2.5 2.5 0 0 0 5 0a3 3 0 0 0 2.567-4.553a3.001 3.001 0 0 0 0-5.893A3 3 0 0 0 17 4.5a2.5 2.5 0 0 0-5-.001"/><path d="M10.487 7.001V8.98M7 10.501h2.052m5.971 0h2.052m-2.052 2.974h2.052M7 13.475h2.052m1.435 1.545V17m3.025-1.98V17m-.009-10v1.98m-3.45 5.989h3.971a1 1 0 0 0 1-1V9.98a1 1 0 0 0-1-1h-3.971a1 1 0 0 0-1 1v3.989a1 1 0 0 0 1 1"/></g></svg>
+                    <p class="py-2 text-muted">{{#str}}responseplaceholder, block_terusrag{{/str}}</p>
+                </div>
+            </div>
+            
+            <div class="response-content {{^hasresponse}}hidden{{/hasresponse}}" data-region="response-content">
+                <div class="loading-indicator text-center hidden" data-region="loading-indicator">
+                    {{> core/loading }}
+                </div>
+                <div class="response-text mb-2" data-region="response-text"></div>
+                <div class="response-metadata text-muted text-right" style="font-size: 10px;font-weight: lighter;font-family: monospace;" data-region="response-metadata"></div>
+            </div>
+        </div>
+        
+        <!-- Input form moved to the bottom like a chat input -->
+        <form class="rag-form mt-auto" action="#">
+            <div class="input-group">
+                <input 
+                    type="text"
+                    class="form-control rag-query"
+                    placeholder="{{#str}}queryplaceholder, block_terusrag{{/str}}"
+                    data-region="query-input">
+                <div class="input-group-append">
+                    <button type="submit" class="btn btn-outline-secondary rag-submit h-100" data-action="submit-query">
+                        {{#str}}askbutton, block_terusrag{{/str}}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{#js}}
+require(['block_terusrag/raginterface'], function(RAGInterface) {
+    RAGInterface.init('.block_terusrag');
+});
+{{/js}}
