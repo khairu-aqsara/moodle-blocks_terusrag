@@ -51,42 +51,61 @@ class block_terusrag_external extends external_api {
      * @return array RAG response data
      */
     public static function submit_query($query): array {
-        global $CFG;
+        global $USER;
 
-        // Parameter validation.
         $params = self::validate_parameters(self::submit_query_parameters(), [
             'query' => $query,
         ]);
 
-        // Context validation.
-        $context = context_course::instance(1);
+        $context = \context_system::instance();
         self::validate_context($context);
         require_capability('block/terusrag:addinstance', $context);
 
         $provider = get_config('block_terusrag', 'aiprovider');
-        if ($provider === 'gemini') {
-            $gemini = new \block_terusrag\gemini();
-            $response = $gemini->process_rag_query($params['query']);
-        } else if ($provider === 'openai') {
-            $openai = new \block_terusrag\openai();
-            $response = $openai->process_rag_query($params['query']);
-        } else if ($provider === 'ollama') {
-            $ollama = new \block_terusrag\ollama();
-            $response = $ollama->process_rag_query($params['query']);
-        } else {
-            throw new coding_exception('Unsupported AI provider: ' . $provider);
-        }
 
-        if (!isset($response['answer'])) {
-            $response['answer'] = [];
-        } else {
-
-            if (!is_array($response['answer'])) {
-                $response['answer'] = [$response['answer']];
+        try {
+            if ($provider === 'gemini') {
+                $gemini = new \block_terusrag\gemini();
+                $response = $gemini->process_rag_query($params['query']);
+            } else if ($provider === 'openai') {
+                $openai = new \block_terusrag\openai();
+                $response = $openai->process_rag_query($params['query']);
+            } else if ($provider === 'ollama') {
+                $ollama = new \block_terusrag\ollama();
+                $response = $ollama->process_rag_query($params['query']);
+            } else {
+                throw new coding_exception('Unsupported AI provider: ' . $provider);
             }
-        }
 
-        return $response;
+            if (!isset($response['answer'])) {
+                $response['answer'] = [];
+            } else {
+                if (!is_array($response['answer'])) {
+                    $response['answer'] = [$response['answer']];
+                }
+            }
+
+            return $response;
+        } catch (\moodle_exception $e) {
+            debugging('Terus RAG Error: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return [
+                'answer' => [],
+                'promptTokenCount' => 0,
+                'responseTokenCount' => 0,
+                'totalTokenCount' => 0,
+                'error' => $e->getMessage(),
+            ];
+        } catch (\Exception $e) {
+            debugging('Terus RAG Unexpected Error: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return [
+                'answer' => [],
+                'promptTokenCount' => 0,
+                'responseTokenCount' => 0,
+                'responseTokenCount' => 0,
+                'totalTokenCount' => 0,
+                'error' => get_string('general_error', 'block_terusrag'),
+            ];
+        }
     }
 
     /**

@@ -322,18 +322,72 @@ class gemini implements provider_interface {
         global $DB;
         if ($response) {
             if (isset($response["id"])) {
-                $course = $DB->get_record("course", ["id" => $response["id"]]);
-                $viewurl = $course
-                    ? new \moodle_url("/course/view.php", [
-                        "id" => $response["id"],
-                    ])
-                    : null;
-                return [
-                    "id" => $response["id"],
-                    "title" => $course ? $course->fullname : "Unknown Course",
-                    "content" => $response["content"],
-                    "viewurl" => !is_null($viewurl) ? $viewurl->out() : null,
-                ];
+                $chunkid = $response["id"];
+                $chunk = $DB->get_record("block_terusrag", ["id" => $chunkid]);
+                
+                if ($chunk) {
+                    $moduletype = $chunk->moduletype;
+                    $moduleid = $chunk->moduleid;
+                    $title = "Unknown";
+                    $viewurl = null;
+
+                    switch ($moduletype) {
+                        case 'course':
+                            $course = $DB->get_record("course", ["id" => $moduleid]);
+                            $title = $course ? $course->fullname : "Unknown Course";
+                            $viewurl = $course ? new \moodle_url("/course/view.php", ["id" => $moduleid]) : null;
+                            break;
+                        case 'resource':
+                            $resource = $DB->get_record("resource", ["id" => $moduleid]);
+                            if ($resource) {
+                                $cm = get_coursemodule_from_instance($moduleid, 'resource');
+                                $title = $resource->name;
+                                $viewurl = $cm ? new \moodle_url("/mod/resource/view.php", ["id" => $cm->id]) : null;
+                            }
+                            break;
+                        case 'assign':
+                            $assign = $DB->get_record("assign", ["id" => $moduleid]);
+                            if ($assign) {
+                                $cm = get_coursemodule_from_instance($moduleid, 'assign');
+                                $title = $assign->name;
+                                $viewurl = $cm ? new \moodle_url("/mod/assign/view.php", ["id" => $cm->id]) : null;
+                            }
+                            break;
+                        case 'forum':
+                            $forum = $DB->get_record("forum", ["id" => $moduleid]);
+                            if ($forum) {
+                                $cm = get_coursemodule_from_instance($moduleid, 'forum');
+                                $title = $forum->name;
+                                $viewurl = $cm ? new \moodle_url("/mod/forum/view.php", ["id" => $cm->id]) : null;
+                            }
+                            break;
+                        case 'page':
+                            $page = $DB->get_record("page", ["id" => $moduleid]);
+                            if ($page) {
+                                $cm = get_coursemodule_from_instance($moduleid, 'page');
+                                $title = $page->name;
+                                $viewurl = $cm ? new \moodle_url("/mod/page/view.php", ["id" => $cm->id]) : null;
+                            }
+                            break;
+                        case 'book':
+                            $book = $DB->get_record("book", ["id" => $moduleid]);
+                            if ($book) {
+                                $cm = get_coursemodule_from_instance($moduleid, 'book');
+                                $title = $book->name;
+                                $viewurl = $cm ? new \moodle_url("/mod/book/view.php", ["id" => $cm->id]) : null;
+                            }
+                            break;
+                        default:
+                            $title = "Unknown Module ($moduletype)";
+                    }
+
+                    return [
+                        "id" => $chunkid,
+                        "title" => $title,
+                        "content" => $response["content"],
+                        "viewurl" => $viewurl ? $viewurl->out() : null,
+                    ];
+                }
             }
         }
         return [

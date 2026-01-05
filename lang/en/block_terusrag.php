@@ -72,6 +72,7 @@ $string['stopwords_not_found'] = 'Stop words file not found';
 $string['unknowncourse'] = 'Unknown course';
 $string['noresultsfound'] = 'No results found';
 $string['notokeninformation'] = 'No token information available';
+$string['general_error'] = 'An error occurred while processing your request. Please try again.';
 
 // Scheduled task strings.
 $string['datainitializer'] = 'Data Initializer';
