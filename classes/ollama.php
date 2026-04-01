@@ -32,7 +32,6 @@ use moodle_exception;
  * Ollama API provider implementation for the TerusRAG block.
  */
 class ollama implements provider_interface {
-
     /** @var string API key for Ollama services */
     protected string $apikey;
 
@@ -61,6 +60,8 @@ class ollama implements provider_interface {
      * Constructor initializes the Ollama API client.
      */
     public function __construct() {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
         $apikey = get_config("block_terusrag", "ollama_api_key");
         $host = get_config("block_terusrag", "ollama_endpoint");
         $embeddingmodels = get_config(
@@ -110,7 +111,7 @@ class ollama implements provider_interface {
         ];
 
         $response = $this->httpclient->post(
-            $this->host . "/api/embed/",
+            $this->host . '/api/embed',
             json_encode($payload)
         );
 
@@ -212,8 +213,6 @@ class ollama implements provider_interface {
      * @return array The processed response
      */
     public function process_rag_query(string $userquery) {
-        global $DB;
-
         // 1. System Prompt (Define role and behavior).
         $systemprompt = $this->systemprompt;
 
@@ -258,11 +257,11 @@ class ollama implements provider_interface {
                 : 0,
         ];
 
-        // Log if unexpected response structure is received.
-        if (!isset($answer["response"]) || !isset($answer["usageMetadata"])) {
+        // Log if the expected 'response' field is absent.
+        if (!isset($answer['response'])) {
             debugging(
-                "Ollama API returned unexpected response structure: " .
-                    json_encode($answer),
+                'TerusRAG Ollama process_rag_query: unexpected response structure: '
+                . json_encode($answer),
                 DEBUG_DEVELOPER
             );
         }
@@ -291,14 +290,19 @@ class ollama implements provider_interface {
     /**
      * Parse the response from the Ollama API.
      *
-     * @param string $response The response from the API
-     * @return array Parsed response as an array of lines
+     * Items are kept as long as they carry non-empty content; items with
+     * unresolvable chunk IDs are returned with a fallback title so the
+     * answer is never silently empty.
+     *
+     * @param  string $response Plain text response from the Ollama generate endpoint.
+     * @return array  Parsed and filtered response items (re-indexed).
      */
-    public function parse_response($response) {
-        $text = trim($response);
-        // Split by newline and clean up each line.
+    public function parse_response(string $response): array {
+        $text  = trim($response);
         $lines = explode("\n", $text);
-        $cleanlines = [];
+
+        $cleanlines     = [];
+        $processedcount = 0;
 
         foreach ($lines as $line) {
             $line = trim($line);
@@ -306,112 +310,197 @@ class ollama implements provider_interface {
                 $cleanlines[] = $this->get_course_from_proper_answer(
                     $this->get_proper_answer($line)
                 );
+                $processedcount++;
             }
         }
 
-        // Filter out items where id is 0 or not set.
-        return array_filter($cleanlines, function ($item) {
-            return isset($item["id"]) && $item["id"] != 0;
+        $filteredcount = 0;
+        $result = array_filter($cleanlines, static function (array $item) use (&$filteredcount): bool {
+            if (isset($item['content']) && trim($item['content']) !== '') {
+                return true;
+            }
+            $filteredcount++;
+            debugging(
+                'TerusRAG Ollama parse_response: item filtered (empty content). '
+                . 'ID: ' . ($item['id'] ?? 'null'),
+                DEBUG_DEVELOPER
+            );
+            return false;
         });
+
+        if ($processedcount > 0) {
+            debugging(
+                sprintf(
+                    'TerusRAG Ollama parse_response: %d lines processed, %d kept, %d filtered.',
+                    $processedcount,
+                    count($result),
+                    $filteredcount
+                ),
+                DEBUG_DEVELOPER
+            );
+        }
+
+        return array_values($result);
     }
 
     /**
      * Get course information from a properly formatted answer.
      *
-     * @param array $response The formatted response array
-     * @return array Course information with id, title, content, and view URL
+     * @param  array $response Output of get_proper_answer(): keys 'id' and 'content'.
+     * @return array Keys: id (int), title (string), content (string), viewurl (string|null).
      */
-    public function get_course_from_proper_answer(array $response) {
-        global $DB;
-        if ($response) {
-            if (isset($response["id"])) {
-                $chunkid = $response["id"];
-                $chunk = $DB->get_record("block_terusrag", ["id" => $chunkid]);
-                
-                if ($chunk) {
-                    $moduletype = $chunk->moduletype;
-                    $moduleid = $chunk->moduleid;
-                    $title = "Unknown";
-                    $viewurl = null;
+    public function get_course_from_proper_answer(array $response): array {
+        $chunkid = isset($response['id']) ? (int) $response['id'] : 0;
+        $content = $response['content'] ?? '';
 
-                    switch ($moduletype) {
-                        case 'course':
-                            $course = $DB->get_record("course", ["id" => $moduleid]);
-                            $title = $course ? $course->fullname : "Unknown Course";
-                            $viewurl = $course ? new \moodle_url("/course/view.php", ["id" => $moduleid]) : null;
-                            break;
-                        case 'resource':
-                            $resource = $DB->get_record("resource", ["id" => $moduleid]);
-                            if ($resource) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'resource');
-                                $title = $resource->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/resource/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'assign':
-                            $assign = $DB->get_record("assign", ["id" => $moduleid]);
-                            if ($assign) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'assign');
-                                $title = $assign->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/assign/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'forum':
-                            $forum = $DB->get_record("forum", ["id" => $moduleid]);
-                            if ($forum) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'forum');
-                                $title = $forum->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/forum/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'page':
-                            $page = $DB->get_record("page", ["id" => $moduleid]);
-                            if ($page) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'page');
-                                $title = $page->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/page/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'book':
-                            $book = $DB->get_record("book", ["id" => $moduleid]);
-                            if ($book) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'book');
-                                $title = $book->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/book/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        default:
-                            $title = "Unknown Module ($moduletype)";
-                    }
-
-                    return [
-                        "id" => $chunkid,
-                        "title" => $title,
-                        "content" => $response["content"],
-                        "viewurl" => $viewurl ? $viewurl->out() : null,
-                    ];
-                }
-            }
+        if ($chunkid <= 0) {
+            return [
+                'id'      => 0,
+                'title'   => get_string('unknowncourse', 'block_terusrag'),
+                'content' => $content,
+                'viewurl' => null,
+            ];
         }
+
+        global $DB;
+        $chunk = $DB->get_record('block_terusrag', ['id' => $chunkid]);
+
+        if (!$chunk) {
+            debugging(
+                'TerusRAG Ollama: chunk not found in DB. ID: ' . $chunkid
+                . '. Content preview: "' . mb_substr($content, 0, 120) . '"',
+                DEBUG_DEVELOPER
+            );
+            return [
+                'id'      => $chunkid,
+                'title'   => get_string('unknowncourse', 'block_terusrag'),
+                'content' => $content,
+                'viewurl' => null,
+            ];
+        }
+
+        return $this->build_course_response_from_chunk($chunk, $content);
+    }
+
+    /**
+     * Build a formatted response array from a verified chunk database record.
+     *
+     * @param  \stdClass $chunk   Record from {block_terusrag}.
+     * @param  string    $content LLM-generated content text for this chunk.
+     * @return array Keys: id, title, content, viewurl.
+     */
+    private function build_course_response_from_chunk(\stdClass $chunk, string $content): array {
+        global $DB;
+
+        $moduletype = (string) $chunk->moduletype;
+        $moduleid   = (int)    $chunk->moduleid;
+        $title      = get_string('unknowncourse', 'block_terusrag');
+        $viewurl    = null;
+
+        switch ($moduletype) {
+            case 'course':
+                $course = $DB->get_record('course', ['id' => $moduleid]);
+                if ($course) {
+                    $title   = format_string($course->fullname);
+                    $viewurl = new \moodle_url('/course/view.php', ['id' => $moduleid]);
+                }
+                break;
+
+            case 'resource':
+                $resource = $DB->get_record('resource', ['id' => $moduleid]);
+                if ($resource) {
+                    $cm      = get_coursemodule_from_instance('resource', $moduleid);
+                    $title   = format_string($resource->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/resource/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'assign':
+                $assign = $DB->get_record('assign', ['id' => $moduleid]);
+                if ($assign) {
+                    $cm      = get_coursemodule_from_instance('assign', $moduleid);
+                    $title   = format_string($assign->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/assign/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'forum':
+                $forum = $DB->get_record('forum', ['id' => $moduleid]);
+                if ($forum) {
+                    $cm      = get_coursemodule_from_instance('forum', $moduleid);
+                    $title   = format_string($forum->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/forum/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'page':
+                $page = $DB->get_record('page', ['id' => $moduleid]);
+                if ($page) {
+                    $cm      = get_coursemodule_from_instance('page', $moduleid);
+                    $title   = format_string($page->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/page/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'book':
+                $book = $DB->get_record('book', ['id' => $moduleid]);
+                if ($book) {
+                    $cm      = get_coursemodule_from_instance('book', $moduleid);
+                    $title   = format_string($book->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/book/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            default:
+                debugging(
+                    'TerusRAG Ollama: unknown moduletype "' . s($moduletype)
+                    . '" for chunk ID ' . $chunk->id,
+                    DEBUG_DEVELOPER
+                );
+                $title = s($moduletype);
+        }
+
         return [
-            "id" => 0,
-            "title" => "Unknown Course",
-            "content" => "Unknown Course",
-            "viewurl" => null,
+            'id'      => (int) $chunk->id,
+            'title'   => $title,
+            'content' => $content,
+            'viewurl' => $viewurl ? $viewurl->out(false) : null,
         ];
     }
 
     /**
-     * Format a string answer into a structured response.
+     * Extract a chunk ID from one line of LLM output using cascading strategies.
      *
-     * @param string $originalstring The original response string
-     * @return array Structured response with ID and content
+     * @param  string $originalstring One line from the LLM response.
+     * @return array  Keys: 'id' (int|null) and 'content' (string).
      */
-    public function get_proper_answer($originalstring) {
-        preg_match("/(\d+)/", $originalstring, $matches);
-        $id = isset($matches[1]) ? (int) $matches[1] : null;
-        $cleanstring = preg_replace("/^\[\d+\]\s*/", "", $originalstring);
-        return ["id" => $id, "content" => $cleanstring];
+    public function get_proper_answer(string $originalstring): array {
+        $id          = null;
+        $cleanstring = $originalstring;
+
+        if (preg_match('/^\s*\[(\d+)\]/', $originalstring, $m)) {
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*\[\d+\]\s*/', '', $originalstring));
+        } else if (preg_match('/^\s*\((\d+)\)/', $originalstring, $m)) {
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*\(\d+\)\s*/', '', $originalstring));
+        } else if (preg_match('/^\s*(?:id|chunk)[:\s]+(\d+)/i', $originalstring, $m)) {
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*(?:id|chunk)[:\s]+\d+\s*/i', '', $originalstring));
+        } else if (preg_match('/(\d+)/', $originalstring, $m)) {
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*\d+\s*/', '', $originalstring));
+            debugging(
+                'TerusRAG Ollama get_proper_answer: chunk ID extracted via fallback. '
+                . 'ID: ' . $id . '. Line: "' . mb_substr($originalstring, 0, 80) . '"',
+                DEBUG_DEVELOPER
+            );
+        }
+
+        return [
+            'id'      => $id,
+            'content' => $cleanstring,
+        ];
     }
 
     /**
@@ -490,7 +579,6 @@ class ollama implements provider_interface {
             }
 
             return $topnchunks;
-
         } finally {
             $rs->close();
         }
@@ -511,7 +599,7 @@ class ollama implements provider_interface {
     protected function process_chunk_batch($batch, $queryembedding, $query, $llm, $bm25, &$chunkscores, &$bm25scores) {
         foreach ($batch as $chunk) {
             $chunkembedding = unserialize($chunk->embedding);
-            if ($chunkembedding) {
+            if ($chunkembedding && is_array($chunkembedding)) {
                 $chunkscores[$chunk->id] = $llm->cosine_similarity($queryembedding, $chunkembedding);
                 $bm25scores[$chunk->id] = $bm25->score($query, $chunk->content, $chunk->id);
             } else {
@@ -580,7 +668,6 @@ class ollama implements provider_interface {
 
             // Update last processed time.
             set_config('last_processed_time', $currenttime, 'block_terusrag');
-
         } finally {
             $rs->close();
         }

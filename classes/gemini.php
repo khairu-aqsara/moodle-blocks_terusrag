@@ -32,7 +32,6 @@ use moodle_exception;
  * Gemini API provider implementation for the TerusRAG block.
  */
 class gemini implements provider_interface {
-
     /** @var string API key for Gemini services */
     protected string $apikey;
 
@@ -61,6 +60,8 @@ class gemini implements provider_interface {
      * Constructor initializes the Gemini API client.
      */
     public function __construct() {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
         $apikey = get_config("block_terusrag", "gemini_api_key");
         $host = get_config("block_terusrag", "gemini_endpoint");
         $embeddingmodels = get_config(
@@ -98,97 +99,100 @@ class gemini implements provider_interface {
      * Generate embedding vectors for the given text query.
      *
      * @param string|array $query Text to generate embeddings for
-     * @return array Array of embedding values
-     * @throws moodle_exception If API request fails
+    /**
+     * Generate embedding vectors for the given text using the Gemini Embedding API.
+     *
+     * Uses the embedContent endpoint (per-item).  All current Gemini embedding
+     * models (gemini-embedding-001, gemini-embedding-2-preview) are served
+     * exclusively under /v1beta/ and use the embedContent method — not the
+     * legacy batchEmbedContents that was used with text-embedding-004.
+     *
+     * Always returns an array of embedding objects in the form:
+     *   [ ['values' => [float, ...]], ['values' => [float, ...]], ... ]
+     * regardless of whether a single string or an array of strings was supplied.
+     *
+     * @param  string|array $query One text string or an array of text strings.
+     * @return array               Array of ['values' => float[]] objects.
+     * @throws moodle_exception    If the API call fails or returns an unexpected format.
      */
-    public function get_embedding($query) {
-        $query = is_array($query) ? $query : [$query];
-        $payload = [
-            "requests" => array_map(function ($text) {
-                return [
-                    "model" => "models/" . $this->embeddingmodel,
-                    "content" => [
-                        "parts" => [
-                            [
-                                "text" => $text,
-                            ],
-                        ],
-                    ],
-                ];
-            }, $query),
-        ];
+    public function get_embedding($query): array {
+        $queries = is_array($query) ? $query : [$query];
+        $results = [];
 
-        $response = $this->httpclient->post(
-            $this->host .
-                "/v1beta/models/" .
-                $this->embeddingmodel .
-                ":batchEmbedContents",
-            json_encode($payload)
-        );
+        foreach ($queries as $text) {
+            $payload = json_encode([
+                'content' => [
+                    'parts' => [['text' => (string) $text]],
+                ],
+            ]);
 
-        if ($this->httpclient->get_errno()) {
-            $error = $this->httpclient->error;
-            debugging("Curl error: " . $error);
-            throw new moodle_exception("Curl error: " . $error);
-        }
-
-        $data = json_decode($response, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new moodle_exception(
-                "JSON decode error: " . json_last_error_msg()
+            $response = $this->httpclient->post(
+                $this->host . '/v1beta/models/' . $this->embeddingmodel . ':embedContent',
+                $payload
             );
+
+            if ($this->httpclient->get_errno()) {
+                $error = $this->httpclient->error;
+                debugging('TerusRAG Gemini get_embedding curl error: ' . $error, DEBUG_DEVELOPER);
+                throw new moodle_exception('Curl error: ' . $error);
+            }
+
+            $data = json_decode($response, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new moodle_exception('JSON decode error: ' . json_last_error_msg());
+            }
+
+            if (!isset($data['embedding']['values']) || !is_array($data['embedding']['values'])) {
+                debugging(
+                    'TerusRAG Gemini get_embedding: unexpected response from model '
+                    . $this->embeddingmodel . ': ' . $response,
+                    DEBUG_DEVELOPER
+                );
+                throw new moodle_exception('Invalid response from Gemini Embedding API');
+            }
+
+            $results[] = ['values' => $data['embedding']['values']];
         }
 
-        if (isset($data["embeddings"]) && is_array($data["embeddings"])) {
-            $embeddingsdata = $data["embeddings"];
-            return is_array($query)
-                ? $embeddingsdata
-                : $embeddingsdata[0]["values"];
-        } else {
-            debugging("Gemini API: Invalid response format: " . $response);
-            throw new moodle_exception("Invalid response from Gemini API");
-        }
+        return $results;
     }
 
     /**
      * Get a response from the Gemini chat model.
      *
-     * @param string $prompt The prompt to send to the model
-     * @return array The response data from the API
-     * @throws moodle_exception If the API request fails
+     * All current Gemini chat models are accessible via the v1beta endpoint.
+     *
+     * @param  string $prompt The prompt to send to the model.
+     * @return array          The decoded API response.
+     * @throws moodle_exception If the API request fails.
      */
     public function get_response($prompt) {
         $payload = [
-            "contents" => [
-                "parts" => [
-                    [
-                        "text" => $prompt,
-                    ],
+            'contents' => [
+                'parts' => [
+                    ['text' => $prompt],
                 ],
             ],
         ];
 
         $response = $this->httpclient->post(
-            $this->host .
-                "/v1beta/models/" .
-                $this->chatmodel .
-                ":generateContent?key=" .
-                $this->apikey,
+            $this->host . '/v1beta/models/' . $this->chatmodel
+                . ':generateContent?key=' . $this->apikey,
             json_encode($payload)
         );
 
         if ($this->httpclient->get_errno()) {
             $error = $this->httpclient->error;
-            debugging("Curl error: " . $error);
-            throw new moodle_exception("Curl error: " . $error);
+            debugging('TerusRAG Gemini get_response curl error: ' . $error, DEBUG_DEVELOPER);
+            throw new moodle_exception('Curl error: ' . $error);
         }
 
         $data = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new moodle_exception(
-                "JSON decode error: " . json_last_error_msg()
+                'JSON decode error: ' . json_last_error_msg()
             );
         }
 
@@ -287,15 +291,28 @@ class gemini implements provider_interface {
     /**
      * Parse the response from the Gemini API.
      *
-     * @param array $response The response from the API
-     * @return array Parsed response as an array of lines
+     * Accepts either the raw candidates array from the Gemini API or a plain
+     * string (used by the admin debug endpoint).  Items are kept as long as
+     * they carry non-empty content; items with unresolvable chunk IDs are
+     * returned with a fallback title so the answer is never silently empty.
+     *
+     * @param  array|string $response Candidates array from Gemini or plain text string.
+     * @return array Parsed and filtered response items (re-indexed).
      */
-    public function parse_response($response) {
-        $text = $this->extract_all_text_response($response);
-        $text = trim($text);
-        // Split by newline and clean up each line.
+    public function parse_response($response): array {
+        // Handle both the native Gemini candidates array and plain-text input
+        // (e.g. when called from the admin debug endpoint).
+        if (is_array($response)) {
+            $text = $this->extract_all_text_response($response);
+        } else {
+            $text = (string) $response;
+        }
+
+        $text  = trim($text);
         $lines = explode("\n", $text);
-        $cleanlines = [];
+
+        $cleanlines     = [];
+        $processedcount = 0;
 
         foreach ($lines as $line) {
             $line = trim($line);
@@ -303,112 +320,223 @@ class gemini implements provider_interface {
                 $cleanlines[] = $this->get_course_from_proper_answer(
                     $this->get_proper_answer($line)
                 );
+                $processedcount++;
             }
         }
 
-        // Filter out items where id is 0 or not set.
-        return array_filter($cleanlines, function ($item) {
-            return isset($item["id"]) && $item["id"] != 0;
+        // Keep items that carry actual content. Unverified items (chunk not
+        // found in the DB) are intentionally kept so users see the answer even
+        // when the index is stale or the LLM referenced an unknown chunk.
+        $filteredcount = 0;
+        $result = array_filter($cleanlines, static function (array $item) use (&$filteredcount): bool {
+            if (isset($item['content']) && trim($item['content']) !== '') {
+                return true;
+            }
+            $filteredcount++;
+            debugging(
+                'TerusRAG Gemini parse_response: item filtered (empty content). '
+                . 'ID: ' . ($item['id'] ?? 'null'),
+                DEBUG_DEVELOPER
+            );
+            return false;
         });
+
+        if ($processedcount > 0) {
+            debugging(
+                sprintf(
+                    'TerusRAG Gemini parse_response: %d lines processed, %d kept, %d filtered.',
+                    $processedcount,
+                    count($result),
+                    $filteredcount
+                ),
+                DEBUG_DEVELOPER
+            );
+        }
+
+        return array_values($result);
     }
 
     /**
      * Get course information from a properly formatted answer.
      *
-     * @param array $response The formatted response array
-     * @return array Course information with id, title, content, and view URL
+     * Resolves the chunk ID returned by get_proper_answer() to a real Moodle
+     * resource URL and title.  When the chunk cannot be found in the database
+     * (e.g. index is stale), the LLM-generated content is still returned with
+     * a graceful fallback so the user always sees an answer.
+     *
+     * @param  array $response Output of get_proper_answer(): keys 'id' and 'content'.
+     * @return array Keys: id (int), title (string), content (string), viewurl (string|null).
      */
-    public function get_course_from_proper_answer(array $response) {
-        global $DB;
-        if ($response) {
-            if (isset($response["id"])) {
-                $chunkid = $response["id"];
-                $chunk = $DB->get_record("block_terusrag", ["id" => $chunkid]);
-                
-                if ($chunk) {
-                    $moduletype = $chunk->moduletype;
-                    $moduleid = $chunk->moduleid;
-                    $title = "Unknown";
-                    $viewurl = null;
+    public function get_course_from_proper_answer(array $response): array {
+        $chunkid = isset($response['id']) ? (int) $response['id'] : 0;
+        $content = $response['content'] ?? '';
 
-                    switch ($moduletype) {
-                        case 'course':
-                            $course = $DB->get_record("course", ["id" => $moduleid]);
-                            $title = $course ? $course->fullname : "Unknown Course";
-                            $viewurl = $course ? new \moodle_url("/course/view.php", ["id" => $moduleid]) : null;
-                            break;
-                        case 'resource':
-                            $resource = $DB->get_record("resource", ["id" => $moduleid]);
-                            if ($resource) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'resource');
-                                $title = $resource->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/resource/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'assign':
-                            $assign = $DB->get_record("assign", ["id" => $moduleid]);
-                            if ($assign) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'assign');
-                                $title = $assign->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/assign/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'forum':
-                            $forum = $DB->get_record("forum", ["id" => $moduleid]);
-                            if ($forum) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'forum');
-                                $title = $forum->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/forum/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'page':
-                            $page = $DB->get_record("page", ["id" => $moduleid]);
-                            if ($page) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'page');
-                                $title = $page->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/page/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'book':
-                            $book = $DB->get_record("book", ["id" => $moduleid]);
-                            if ($book) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'book');
-                                $title = $book->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/book/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        default:
-                            $title = "Unknown Module ($moduletype)";
-                    }
-
-                    return [
-                        "id" => $chunkid,
-                        "title" => $title,
-                        "content" => $response["content"],
-                        "viewurl" => $viewurl ? $viewurl->out() : null,
-                    ];
-                }
-            }
+        // No valid chunk reference from the LLM.
+        if ($chunkid <= 0) {
+            return [
+                'id'      => 0,
+                'title'   => get_string('unknowncourse', 'block_terusrag'),
+                'content' => $content,
+                'viewurl' => null,
+            ];
         }
+
+        global $DB;
+        $chunk = $DB->get_record('block_terusrag', ['id' => $chunkid]);
+
+        if (!$chunk) {
+            // Graceful degradation: chunk ID referenced by the LLM does not
+            // exist in the index (stale index or hallucinated ID).
+            debugging(
+                'TerusRAG Gemini: chunk not found in DB. ID: ' . $chunkid
+                . '. Content preview: "' . mb_substr($content, 0, 120) . '"',
+                DEBUG_DEVELOPER
+            );
+            return [
+                'id'      => $chunkid,
+                'title'   => get_string('unknowncourse', 'block_terusrag'),
+                'content' => $content,
+                'viewurl' => null,
+            ];
+        }
+
+        return $this->build_course_response_from_chunk($chunk, $content);
+    }
+
+    /**
+     * Build a formatted response array from a verified chunk database record.
+     *
+     * Resolves the module title and view URL from the chunk's moduletype and
+     * moduleid.  Uses format_string() for all user-visible title strings.
+     * Note: get_coursemodule_from_instance() signature is
+     *   get_coursemodule_from_instance(string $modulename, int $instance).
+     *
+     * @param  \stdClass $chunk   Record from {block_terusrag}.
+     * @param  string    $content LLM-generated content text for this chunk.
+     * @return array Keys: id, title, content, viewurl.
+     */
+    private function build_course_response_from_chunk(\stdClass $chunk, string $content): array {
+        global $DB;
+
+        $moduletype = (string) $chunk->moduletype;
+        $moduleid   = (int)    $chunk->moduleid;
+        $title      = get_string('unknowncourse', 'block_terusrag');
+        $viewurl    = null;
+
+        switch ($moduletype) {
+            case 'course':
+                $course = $DB->get_record('course', ['id' => $moduleid]);
+                if ($course) {
+                    $title   = format_string($course->fullname);
+                    $viewurl = new \moodle_url('/course/view.php', ['id' => $moduleid]);
+                }
+                break;
+
+            case 'resource':
+                $resource = $DB->get_record('resource', ['id' => $moduleid]);
+                if ($resource) {
+                    $cm      = get_coursemodule_from_instance('resource', $moduleid);
+                    $title   = format_string($resource->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/resource/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'assign':
+                $assign = $DB->get_record('assign', ['id' => $moduleid]);
+                if ($assign) {
+                    $cm      = get_coursemodule_from_instance('assign', $moduleid);
+                    $title   = format_string($assign->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/assign/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'forum':
+                $forum = $DB->get_record('forum', ['id' => $moduleid]);
+                if ($forum) {
+                    $cm      = get_coursemodule_from_instance('forum', $moduleid);
+                    $title   = format_string($forum->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/forum/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'page':
+                $page = $DB->get_record('page', ['id' => $moduleid]);
+                if ($page) {
+                    $cm      = get_coursemodule_from_instance('page', $moduleid);
+                    $title   = format_string($page->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/page/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'book':
+                $book = $DB->get_record('book', ['id' => $moduleid]);
+                if ($book) {
+                    $cm      = get_coursemodule_from_instance('book', $moduleid);
+                    $title   = format_string($book->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/book/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            default:
+                debugging(
+                    'TerusRAG Gemini: unknown moduletype "' . s($moduletype)
+                    . '" for chunk ID ' . $chunk->id,
+                    DEBUG_DEVELOPER
+                );
+                $title = s($moduletype);
+        }
+
         return [
-            "id" => 0,
-            "title" => "Unknown Course",
-            "content" => "Unknown Course",
-            "viewurl" => null,
+            'id'      => (int) $chunk->id,
+            'title'   => $title,
+            'content' => $content,
+            'viewurl' => $viewurl ? $viewurl->out(false) : null,
         ];
     }
 
     /**
-     * Format a string answer into a structured response.
+     * Extract a chunk ID from one line of LLM output using cascading strategies.
      *
-     * @param string $originalstring The original response string
-     * @return array Structured response with ID and content
+     * Strategies are evaluated in priority order:
+     *  1. [id]  — bracket prefix at start of line  (system-prompt format)
+     *  2. (id)  — parenthesis prefix at start of line
+     *  3. id: / chunk: prefix at start of line (case-insensitive)
+     *  4. First integer found anywhere in the line (fallback, logged)
+     *
+     * @param  string $originalstring One line from the LLM response.
+     * @return array  Keys: 'id' (int|null) and 'content' (string).
      */
-    public function get_proper_answer($originalstring) {
-        preg_match("/(\d+)/", $originalstring, $matches);
-        $id = isset($matches[1]) ? (int) $matches[1] : null;
-        $cleanstring = preg_replace("/^\[\d+\]\s*/", "", $originalstring);
-        return ["id" => $id, "content" => $cleanstring];
+    public function get_proper_answer(string $originalstring): array {
+        $id          = null;
+        $cleanstring = $originalstring;
+
+        if (preg_match('/^\s*\[(\d+)\]/', $originalstring, $m)) {
+            // Strategy 1: [id] bracket format — the preferred system-prompt format.
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*\[\d+\]\s*/', '', $originalstring));
+        } else if (preg_match('/^\s*\((\d+)\)/', $originalstring, $m)) {
+            // Strategy 2: (id) parenthesis format.
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*\(\d+\)\s*/', '', $originalstring));
+        } else if (preg_match('/^\s*(?:id|chunk)[:\s]+(\d+)/i', $originalstring, $m)) {
+            // Strategy 3: id: or chunk: prefix.
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*(?:id|chunk)[:\s]+\d+\s*/i', '', $originalstring));
+        } else if (preg_match('/(\d+)/', $originalstring, $m)) {
+            // Strategy 4: first integer in the line (fallback).
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*\d+\s*/', '', $originalstring));
+            debugging(
+                'TerusRAG Gemini get_proper_answer: chunk ID extracted via fallback. '
+                . 'ID: ' . $id . '. Line: "' . mb_substr($originalstring, 0, 80) . '"',
+                DEBUG_DEVELOPER
+            );
+        }
+
+        return [
+            'id'      => $id,
+            'content' => $cleanstring,
+        ];
     }
 
     /**
@@ -487,7 +615,6 @@ class gemini implements provider_interface {
             }
 
             return $topnchunks;
-
         } finally {
             $rs->close();
         }
@@ -577,7 +704,6 @@ class gemini implements provider_interface {
 
             // Update last processed time.
             set_config('last_processed_time', $currenttime, 'block_terusrag');
-
         } finally {
             $rs->close();
         }

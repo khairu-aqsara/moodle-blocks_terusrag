@@ -27,12 +27,21 @@ defined('MOODLE_INTERNAL') || die();
 
 $functions = [
     'block_terusrag_submit_query' => [
-        'classname'     => 'block_terusrag_external',
-        'methodname'    => 'submit_query',
-        'classpath'     => 'blocks/terusrag/classes/external.php',
-        'description'   => 'Submit a query to the Terus RAG system',
-        'type'         => 'read',
-        'ajax'         => true,
+        'classname'   => 'block_terusrag_external',
+        'methodname'  => 'submit_query',
+        'classpath'   => 'blocks/terusrag/classes/external.php',
+        'description' => 'Submit a query to the Terus RAG system',
+        'type'        => 'read',
+        'ajax'        => true,
         'capabilities' => 'block/terusrag:addinstance',
+    ],
+    'block_terusrag_debug_parse_response' => [
+        'classname'   => 'block_terusrag_external',
+        'methodname'  => 'debug_parse_response',
+        'classpath'   => 'blocks/terusrag/classes/external.php',
+        'description' => 'Admin-only: test the RAG response parsing pipeline without a live API call',
+        'type'        => 'read',
+        'ajax'        => true,
+        'capabilities' => 'moodle/site:config',
     ],
 ];

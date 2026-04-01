@@ -32,7 +32,6 @@ namespace block_terusrag;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 interface provider_interface {
-
     /**
      * Get embedding vector for a query.
      *

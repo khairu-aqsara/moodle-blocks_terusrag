@@ -32,7 +32,6 @@ use moodle_exception;
  * OpenAI API provider implementation for the TerusRAG block.
  */
 class openai implements provider_interface {
-
     /** @var string API key for Gemini services */
     protected string $apikey;
 
@@ -64,6 +63,8 @@ class openai implements provider_interface {
      * and configures the HTTP client for API communication.
      */
     public function __construct() {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
         $apikey = get_config("block_terusrag", "openai_api_key");
         $host = get_config("block_terusrag", "openai_endpoint");
         $embeddingmodels = get_config(
@@ -99,39 +100,61 @@ class openai implements provider_interface {
     }
 
     /**
-     * Generate embedding vectors for the given text query.
+     * Generate embedding vectors for the given text using the OpenAI Embeddings API.
      *
-     * @param string|array $query Text to generate embeddings for
-     * @return array Array of embedding values
-     * @throws moodle_exception If API request fails
+     * OpenAI accepts batched input in a single request.  Results are sorted
+     * by their response index to guarantee order matches the input order.
+     *
+     * Returns:
+     *  - A flat float array when a single string is supplied.
+     *  - An array of flat float arrays when an array of strings is supplied.
+     *
+     * @param  string|array $query One text string or an array of text strings.
+     * @return array               Flat float array, or array of flat float arrays.
+     * @throws moodle_exception    If the API call fails or returns an unexpected format.
      */
-    public function get_embedding($query) {
-        $payload = [
-            "input" => $query,
-            "model" => $this->embeddingmodel,
-            "encoding_format" => "float",
-        ];
+    public function get_embedding($query): array {
+        $queries = is_array($query) ? $query : [$query];
+
+        $payload = json_encode([
+            'input'           => $queries,
+            'model'           => $this->embeddingmodel,
+            'encoding_format' => 'float',
+        ]);
 
         $response = $this->httpclient->post(
-            $this->host . "/embeddings",
-            json_encode($payload)
+            $this->host . '/embeddings',
+            $payload
         );
+
+        if ($this->httpclient->get_errno()) {
+            $error = $this->httpclient->error;
+            debugging('TerusRAG OpenAI get_embedding curl error: ' . $error, DEBUG_DEVELOPER);
+            throw new moodle_exception('Curl error: ' . $error);
+        }
 
         $data = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new moodle_exception(
-                "JSON decode error: " . json_last_error_msg()
-            );
+            throw new moodle_exception('JSON decode error: ' . json_last_error_msg());
         }
 
-        if (isset($data["data"]) && is_array($data["data"])) {
-            $embeddingsdata = $data["data"][0]["embedding"];
-            return $embeddingsdata;
-        } else {
-            debugging("Open API: Invalid response format: " . $response);
-            throw new moodle_exception("Invalid response from Open API");
+        if (!isset($data['data']) || !is_array($data['data'])) {
+            debugging(
+                'TerusRAG OpenAI get_embedding: unexpected response format: ' . $response,
+                DEBUG_DEVELOPER
+            );
+            throw new moodle_exception('Invalid response from OpenAI Embeddings API');
         }
+
+        // Sort by OpenAI's 'index' field to guarantee input order is preserved.
+        usort($data['data'], static fn($a, $b) => $a['index'] <=> $b['index']);
+
+        // Extract the flat embedding vectors.
+        $results = array_map(static fn($item) => $item['embedding'], $data['data']);
+
+        // Return a single flat array for string input; array of arrays for batch input.
+        return is_array($query) ? $results : ($results[0] ?? []);
     }
 
     /**
@@ -262,7 +285,6 @@ class openai implements provider_interface {
             }
 
             return $topnchunks;
-
         } finally {
             $rs->close();
         }
@@ -300,8 +322,6 @@ class openai implements provider_interface {
      * @return array The processed response
      */
     public function process_rag_query(string $userquery) {
-        global $DB;
-
         $systemprompt = $this->systemprompt;
 
         if ($this->promptoptimization) {
@@ -341,15 +361,21 @@ class openai implements provider_interface {
     }
 
     /**
-     * Parse the response from the Gemini API.
+     * Parse the response from the OpenAI API.
      *
-     * @param string $response The response from the API
-     * @return array Parsed response as an array of lines
+     * Items are kept as long as they carry non-empty content; items with
+     * unresolvable chunk IDs are returned with a fallback title so the
+     * answer is never silently empty.
+     *
+     * @param  string $response Plain text response from the OpenAI chat completion.
+     * @return array  Parsed and filtered response items (re-indexed).
      */
-    public function parse_response(string $response) {
-        $text = trim($response);
+    public function parse_response(string $response): array {
+        $text  = trim($response);
         $lines = explode("\n", $text);
-        $cleanlines = [];
+
+        $cleanlines     = [];
+        $processedcount = 0;
 
         foreach ($lines as $line) {
             $line = trim($line);
@@ -357,111 +383,203 @@ class openai implements provider_interface {
                 $cleanlines[] = $this->get_course_from_proper_answer(
                     $this->get_proper_answer($line)
                 );
+                $processedcount++;
             }
         }
 
-        // Filter out items where id is 0 or not set.
-        return array_filter($cleanlines, function ($item) {
-            return isset($item["id"]) && $item["id"] != 0;
+        // Keep items that carry actual content. Unverified items (chunk not
+        // found in the DB) are intentionally kept so users see the answer.
+        $filteredcount = 0;
+        $result = array_filter($cleanlines, static function (array $item) use (&$filteredcount): bool {
+            if (isset($item['content']) && trim($item['content']) !== '') {
+                return true;
+            }
+            $filteredcount++;
+            debugging(
+                'TerusRAG OpenAI parse_response: item filtered (empty content). '
+                . 'ID: ' . ($item['id'] ?? 'null'),
+                DEBUG_DEVELOPER
+            );
+            return false;
         });
+
+        if ($processedcount > 0) {
+            debugging(
+                sprintf(
+                    'TerusRAG OpenAI parse_response: %d lines processed, %d kept, %d filtered.',
+                    $processedcount,
+                    count($result),
+                    $filteredcount
+                ),
+                DEBUG_DEVELOPER
+            );
+        }
+
+        return array_values($result);
     }
 
     /**
-     * Format a string answer into a structured response.
+     * Extract a chunk ID from one line of LLM output using cascading strategies.
      *
-     * @param string $originalstring The original response string
-     * @return array Structured response with ID and content
+     * @param  string $originalstring One line from the LLM response.
+     * @return array  Keys: 'id' (int|null) and 'content' (string).
      */
-    public function get_proper_answer($originalstring) {
-        preg_match("/(\d+)/", $originalstring, $matches);
-        $id = isset($matches[1]) ? (int) $matches[1] : null;
-        $cleanstring = preg_replace("/^\[\d+\]\s*/", "", $originalstring);
-        return ["id" => $id, "content" => $cleanstring];
+    public function get_proper_answer(string $originalstring): array {
+        $id          = null;
+        $cleanstring = $originalstring;
+
+        if (preg_match('/^\s*\[(\d+)\]/', $originalstring, $m)) {
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*\[\d+\]\s*/', '', $originalstring));
+        } else if (preg_match('/^\s*\((\d+)\)/', $originalstring, $m)) {
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*\(\d+\)\s*/', '', $originalstring));
+        } else if (preg_match('/^\s*(?:id|chunk)[:\s]+(\d+)/i', $originalstring, $m)) {
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*(?:id|chunk)[:\s]+\d+\s*/i', '', $originalstring));
+        } else if (preg_match('/(\d+)/', $originalstring, $m)) {
+            $id          = (int) $m[1];
+            $cleanstring = trim(preg_replace('/^\s*\d+\s*/', '', $originalstring));
+            debugging(
+                'TerusRAG OpenAI get_proper_answer: chunk ID extracted via fallback. '
+                . 'ID: ' . $id . '. Line: "' . mb_substr($originalstring, 0, 80) . '"',
+                DEBUG_DEVELOPER
+            );
+        }
+
+        return [
+            'id'      => $id,
+            'content' => $cleanstring,
+        ];
     }
 
     /**
      * Get course information from a properly formatted answer.
      *
-     * @param array $response The formatted response array
-     * @return array Course information with id, title, content, and view URL
+     * Resolves the chunk ID returned by get_proper_answer() to a real Moodle
+     * resource URL and title.  When the chunk cannot be found in the database
+     * (e.g. index is stale), the LLM-generated content is still returned with
+     * a graceful fallback so the user always sees an answer.
+     *
+     * @param  array $response Output of get_proper_answer(): keys 'id' and 'content'.
+     * @return array Keys: id (int), title (string), content (string), viewurl (string|null).
      */
-    public function get_course_from_proper_answer(array $response) {
-        global $DB;
-        if ($response) {
-            if (isset($response["id"])) {
-                $chunkid = $response["id"];
-                $chunk = $DB->get_record("block_terusrag", ["id" => $chunkid]);
-                
-                if ($chunk) {
-                    $moduletype = $chunk->moduletype;
-                    $moduleid = $chunk->moduleid;
-                    $title = "Unknown";
-                    $viewurl = null;
+    public function get_course_from_proper_answer(array $response): array {
+        $chunkid = isset($response['id']) ? (int) $response['id'] : 0;
+        $content = $response['content'] ?? '';
 
-                    switch ($moduletype) {
-                        case 'course':
-                            $course = $DB->get_record("course", ["id" => $moduleid]);
-                            $title = $course ? $course->fullname : "Unknown Course";
-                            $viewurl = $course ? new \moodle_url("/course/view.php", ["id" => $moduleid]) : null;
-                            break;
-                        case 'resource':
-                            $resource = $DB->get_record("resource", ["id" => $moduleid]);
-                            if ($resource) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'resource');
-                                $title = $resource->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/resource/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'assign':
-                            $assign = $DB->get_record("assign", ["id" => $moduleid]);
-                            if ($assign) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'assign');
-                                $title = $assign->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/assign/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'forum':
-                            $forum = $DB->get_record("forum", ["id" => $moduleid]);
-                            if ($forum) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'forum');
-                                $title = $forum->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/forum/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'page':
-                            $page = $DB->get_record("page", ["id" => $moduleid]);
-                            if ($page) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'page');
-                                $title = $page->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/page/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        case 'book':
-                            $book = $DB->get_record("book", ["id" => $moduleid]);
-                            if ($book) {
-                                $cm = get_coursemodule_from_instance($moduleid, 'book');
-                                $title = $book->name;
-                                $viewurl = $cm ? new \moodle_url("/mod/book/view.php", ["id" => $cm->id]) : null;
-                            }
-                            break;
-                        default:
-                            $title = "Unknown Module ($moduletype)";
-                    }
-
-                    return [
-                        "id" => $chunkid,
-                        "title" => $title,
-                        "content" => $response["content"],
-                        "viewurl" => $viewurl ? $viewurl->out() : null,
-                    ];
-                }
-            }
+        if ($chunkid <= 0) {
+            return [
+                'id'      => 0,
+                'title'   => get_string('unknowncourse', 'block_terusrag'),
+                'content' => $content,
+                'viewurl' => null,
+            ];
         }
+
+        global $DB;
+        $chunk = $DB->get_record('block_terusrag', ['id' => $chunkid]);
+
+        if (!$chunk) {
+            debugging(
+                'TerusRAG OpenAI: chunk not found in DB. ID: ' . $chunkid
+                . '. Content preview: "' . mb_substr($content, 0, 120) . '"',
+                DEBUG_DEVELOPER
+            );
+            return [
+                'id'      => $chunkid,
+                'title'   => get_string('unknowncourse', 'block_terusrag'),
+                'content' => $content,
+                'viewurl' => null,
+            ];
+        }
+
+        return $this->build_course_response_from_chunk($chunk, $content);
+    }
+
+    /**
+     * Build a formatted response array from a verified chunk database record.
+     *
+     * @param  \stdClass $chunk   Record from {block_terusrag}.
+     * @param  string    $content LLM-generated content text for this chunk.
+     * @return array Keys: id, title, content, viewurl.
+     */
+    private function build_course_response_from_chunk(\stdClass $chunk, string $content): array {
+        global $DB;
+
+        $moduletype = (string) $chunk->moduletype;
+        $moduleid   = (int)    $chunk->moduleid;
+        $title      = get_string('unknowncourse', 'block_terusrag');
+        $viewurl    = null;
+
+        switch ($moduletype) {
+            case 'course':
+                $course = $DB->get_record('course', ['id' => $moduleid]);
+                if ($course) {
+                    $title   = format_string($course->fullname);
+                    $viewurl = new \moodle_url('/course/view.php', ['id' => $moduleid]);
+                }
+                break;
+
+            case 'resource':
+                $resource = $DB->get_record('resource', ['id' => $moduleid]);
+                if ($resource) {
+                    $cm      = get_coursemodule_from_instance('resource', $moduleid);
+                    $title   = format_string($resource->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/resource/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'assign':
+                $assign = $DB->get_record('assign', ['id' => $moduleid]);
+                if ($assign) {
+                    $cm      = get_coursemodule_from_instance('assign', $moduleid);
+                    $title   = format_string($assign->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/assign/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'forum':
+                $forum = $DB->get_record('forum', ['id' => $moduleid]);
+                if ($forum) {
+                    $cm      = get_coursemodule_from_instance('forum', $moduleid);
+                    $title   = format_string($forum->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/forum/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'page':
+                $page = $DB->get_record('page', ['id' => $moduleid]);
+                if ($page) {
+                    $cm      = get_coursemodule_from_instance('page', $moduleid);
+                    $title   = format_string($page->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/page/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            case 'book':
+                $book = $DB->get_record('book', ['id' => $moduleid]);
+                if ($book) {
+                    $cm      = get_coursemodule_from_instance('book', $moduleid);
+                    $title   = format_string($book->name);
+                    $viewurl = $cm ? new \moodle_url('/mod/book/view.php', ['id' => $cm->id]) : null;
+                }
+                break;
+
+            default:
+                debugging(
+                    'TerusRAG OpenAI: unknown moduletype "' . s($moduletype)
+                    . '" for chunk ID ' . $chunk->id,
+                    DEBUG_DEVELOPER
+                );
+                $title = s($moduletype);
+        }
+
         return [
-            "id" => 0,
-            "title" => get_string("unknowncourse", "block_terusrag"),
-            "content" => get_string("unknowncourse", "block_terusrag"),
-            "viewurl" => null,
+            'id'      => (int) $chunk->id,
+            'title'   => $title,
+            'content' => $content,
+            'viewurl' => $viewurl ? $viewurl->out(false) : null,
         ];
     }
 
@@ -524,7 +642,6 @@ class openai implements provider_interface {
 
             // Update last processed time.
             set_config('last_processed_time', $currenttime, 'block_terusrag');
-
         } finally {
             $rs->close();
         }

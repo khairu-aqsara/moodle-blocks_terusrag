@@ -28,7 +28,6 @@ namespace block_terusrag;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class bm25 {
-
     /** @var int Size of the corpus (number of documents) */
     private $corpussize = 0;
 

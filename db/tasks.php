@@ -29,10 +29,10 @@ $tasks = [
     [
         'classname' => 'block_terusrag\task\datainitializer',
         'blocking' => 0,
-        'minute' => '0',     // Run at minute 0.
-        'hour' => '3',       // Run at 3 AM.
-        'day' => '*',        // Every day.
-        'month' => '*',      // Every month.
-        'dayofweek' => '*',  // Every day of the week.
+        'minute' => '0', // Run at minute 0.
+        'hour' => '3', // Run at 3 AM.
+        'day' => '*', // Every day.
+        'month' => '*', // Every month.
+        'dayofweek' => '*', // Every day of the week.
     ],
 ];

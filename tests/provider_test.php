@@ -29,8 +29,7 @@ require_once($CFG->dirroot . '/blocks/terusrag/tests/mock_provider.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @coversDefaultClass \block_terusrag\provider
  */
-class provider_test extends \advanced_testcase {
-
+final class provider_test extends \advanced_testcase {
     /** @var mock_provider */
     private $provider;
 
@@ -48,7 +47,7 @@ class provider_test extends \advanced_testcase {
      *
      * @covers ::get_embedding
      */
-    public function test_get_embedding() {
+    public function test_get_embedding(): void {
         // Test single input.
         $query = "Test query";
         $mockembedding = array_fill(0, 384, 0.5);
@@ -76,7 +75,7 @@ class provider_test extends \advanced_testcase {
      *
      * @covers ::get_response
      */
-    public function test_get_response() {
+    public function test_get_response(): void {
         // Test with mock response.
         $prompt = "Test prompt";
         $mockresponse = [
@@ -102,7 +101,7 @@ class provider_test extends \advanced_testcase {
      *
      * @covers ::process_rag_query
      */
-    public function test_process_rag_query() {
+    public function test_process_rag_query(): void {
         $result = $this->provider->process_rag_query("What courses are available?");
 
         $this->assertArrayHasKey('answer', $result);
@@ -122,7 +121,7 @@ class provider_test extends \advanced_testcase {
      *
      * @covers ::data_initialization
      */
-    public function test_data_initialization() {
+    public function test_data_initialization(): void {
         global $DB;
 
         // Run initialization.
@@ -153,7 +152,7 @@ class provider_test extends \advanced_testcase {
      *
      * @covers ::get_top_ranked_chunks
      */
-    public function test_get_top_ranked_chunks() {
+    public function test_get_top_ranked_chunks(): void {
         $result = $this->provider->get_top_ranked_chunks("test query");
 
         $this->assertIsArray($result);
