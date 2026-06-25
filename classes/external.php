@@ -43,10 +43,6 @@ use core_external\external_value;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class block_terusrag_external extends external_api {
-    // =========================================================================
-    // submit_query
-    // =========================================================================
-
     /**
      * Returns description of submit_query parameters.
      *
@@ -85,7 +81,10 @@ class block_terusrag_external extends external_api {
 
         $context = \context_system::instance();
         self::validate_context($context);
-        require_capability('block/terusrag:addinstance', $context);
+        // Querying only needs read access — any authenticated user holds
+        // block/terusrag:view. Requiring :addinstance previously blocked every
+        // ordinary learner (they can see the block but cannot add one).
+        require_capability('block/terusrag:view', $context);
 
         // Guard: content index must be populated before queries are useful.
         $chunkcount = $DB->count_records('block_terusrag');
@@ -128,6 +127,10 @@ class block_terusrag_external extends external_api {
             if (!isset($response['answer']) || !is_array($response['answer'])) {
                 $response['answer'] = [];
             }
+
+            // Strip "no information found" placeholder items emitted alongside
+            // genuine answers (see strip_placeholder_answers()).
+            $response['answer'] = self::strip_placeholder_answers($response['answer']);
 
             // Deduplicate: the indexer splits long content into 512-char chunks,
             // so the same course can appear multiple times in the answer array
@@ -190,6 +193,42 @@ class block_terusrag_external extends external_api {
     }
 
     /**
+     * Remove "no information found" placeholder answers emitted alongside real ones.
+     *
+     * Per the system prompt, a model is told to reply with a single
+     * "[0] I could not find relevant information..." line when no context is
+     * relevant. Some models emit that sentinel in ADDITION to genuine answers;
+     * because it carries chunk id 0 it resolves to an "Unknown course"
+     * placeholder and renders as a spurious extra item.
+     *
+     * This strips items with chunk id 0 — but only when at least one answer
+     * resolved to a real source (id > 0). If every item has id 0 the list is
+     * returned unchanged so a genuine "nothing found" response is still shown,
+     * as is the raw-output fallback (a single id-0 item).
+     *
+     * @param  array $answers Answer items, each with at least an 'id' key.
+     * @return array          Filtered, sequentially re-indexed answer items.
+     */
+    public static function strip_placeholder_answers(array $answers): array {
+        $hasresolved = false;
+        foreach ($answers as $item) {
+            if (!empty($item['id'])) {
+                $hasresolved = true;
+                break;
+            }
+        }
+
+        if (!$hasresolved) {
+            return array_values($answers);
+        }
+
+        return array_values(array_filter(
+            $answers,
+            static fn($item) => !empty($item['id'])
+        ));
+    }
+
+    /**
      * Returns description of submit_query return value.
      *
      * All new top-level fields (status, statusMessage) MUST be declared here
@@ -235,7 +274,6 @@ class block_terusrag_external extends external_api {
     }
 
     // Debug parse response — admin-only diagnostic endpoint.
-    // =========================================================================
 
     /**
      * Returns description of debug_parse_response parameters.

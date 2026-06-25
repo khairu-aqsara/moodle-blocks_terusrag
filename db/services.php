@@ -33,7 +33,7 @@ $functions = [
         'description' => 'Submit a query to the Terus RAG system',
         'type'        => 'read',
         'ajax'        => true,
-        'capabilities' => 'block/terusrag:addinstance',
+        'capabilities' => 'block/terusrag:view',
     ],
     'block_terusrag_debug_parse_response' => [
         'classname'   => 'block_terusrag_external',

@@ -38,23 +38,31 @@ class llm {
      * @return float The cosine similarity value
      */
     public function cosine_similarity(array $vectora, array $vectorb) {
-        $dotproduct = 0;
-        $norma = 0;
-        $normb = 0;
+        $dotproduct = 0.0;
+        $norma = 0.0;
+        $normb = 0.0;
 
+        // Each vector's magnitude must be computed over its own full set of
+        // components, independently of the other vector.  Accumulating $normb
+        // only for keys shared with $vectora (the previous behaviour) produced
+        // an incorrect denominator and inflated similarity scores whenever the
+        // two vectors differed in length or key set.
         foreach ($vectora as $key => $value) {
+            $norma += $value ** 2;
             if (isset($vectorb[$key])) {
                 $dotproduct += $value * $vectorb[$key];
-                $norma += $value ** 2;
-                $normb += $vectorb[$key] ** 2;
             }
+        }
+
+        foreach ($vectorb as $value) {
+            $normb += $value ** 2;
         }
 
         $norma = sqrt($norma);
         $normb = sqrt($normb);
 
-        if ($norma == 0 || $normb == 0) {
-            return 0;
+        if ($norma == 0.0 || $normb == 0.0) {
+            return 0.0;
         }
 
         return $dotproduct / ($norma * $normb);

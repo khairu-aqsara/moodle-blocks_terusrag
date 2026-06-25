@@ -25,6 +25,7 @@
 
 $string['aiprovider'] = 'AI Provider';
 $string['aiprovider_desc'] = 'Select the AI provider to use for generating responses';
+$string['airesponse'] = 'AI response';
 $string['askbutton'] = 'Ask';
 $string['blocktitle'] = 'Block title';
 $string['blocktitle_help'] = 'The title that appears at the top of the Terus RAG block';
@@ -83,7 +84,7 @@ RULES:
 1. ALWAYS prefix each answer line with the chunk ID in square brackets: [ID]
 2. Use the numeric ID from the corresponding context entry provided below
 3. One answer line per relevant chunk — separate with a blank line if needed
-4. If no relevant context is available, respond with: [0] I could not find relevant information in the course materials.
+4. ONLY when NONE of the provided context is relevant, reply with a single line and nothing else: [0] I could not find relevant information in the course materials. NEVER add this line if you have already given any answer above.
 5. Do NOT output token counts, usage statistics, or any text outside this format
 
 EXAMPLE CORRECT FORMAT:
@@ -95,6 +96,7 @@ $string['system_prompt_desc'] = 'Base system prompt for RAG responses (do not re
 $string['terusrag:addinstance'] = 'Add a new Terus RAG block';
 $string['terusrag:managesettings'] = 'Manage Terus RAG settings';
 $string['terusrag:myaddinstance'] = 'Add a new Terus RAG block to the My Moodle page';
+$string['terusrag:view'] = 'Submit queries to the Terus RAG block';
 $string['token_usage'] = 'Token usage — Prompt: {$a->prompt}, Response: {$a->response}, Total: {$a->total}';
 $string['unknowncourse'] = 'Unknown course';
 $string['vector_database'] = 'Vector Database Type';

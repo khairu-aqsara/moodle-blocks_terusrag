@@ -29,7 +29,7 @@
  * @param int $oldversion
  */
 function xmldb_block_terusrag_upgrade($oldversion) {
-    global $DB, $CFG, $OUTPUT;
+    global $DB;
 
     $dbman = $DB->get_manager();
 
@@ -100,6 +100,17 @@ function xmldb_block_terusrag_upgrade($oldversion) {
 
         // Terusrag savepoint reached.
         upgrade_block_savepoint(true, 2025040512, 'terusrag');
+    }
+
+    if ($oldversion < 2026040107) {
+        // This release starts indexing activities/resources in addition to
+        // courses. Existing activities have a timemodified older than the
+        // stored "last processed" watermark and would otherwise be skipped, so
+        // reset it to force a full re-index on the next scheduled run.
+        set_config('last_processed_time', 0, 'block_terusrag');
+
+        // Terusrag savepoint reached.
+        upgrade_block_savepoint(true, 2026040107, 'terusrag');
     }
 
     return true;

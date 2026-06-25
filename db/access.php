@@ -26,6 +26,16 @@
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
+    // Allows a user to submit queries to the RAG interface. Granted to all
+    // authenticated users by default so learners (not just editing teachers /
+    // managers who can ADD the block) can actually use it.
+    'block/terusrag:view' => [
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_BLOCK,
+        'archetypes' => [
+            'user' => CAP_ALLOW,
+        ],
+    ],
     'block/terusrag:myaddinstance' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,

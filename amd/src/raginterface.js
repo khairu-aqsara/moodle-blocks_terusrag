@@ -125,22 +125,41 @@ define(['core/ajax', 'core/notification', 'core/str'],
 
                 // Render answer items when the server returned results.
                 if (response.answer && Array.isArray(response.answer) && response.answer.length > 0) {
-                    responseText.innerHTML = response.answer.map(function(item) {
-                        var titleHtml;
-                        if (item.viewurl) {
-                            titleHtml = '<a href="' + item.viewurl + '" target="_blank">'
-                                + item.title + '</a>';
-                        } else {
-                            titleHtml = item.title;
-                        }
+                    // Build the answer DOM safely. item.title / item.content
+                    // originate from indexed course content echoed back by the
+                    // LLM, so they must never be injected as raw HTML — use
+                    // textContent to neutralise any markup (XSS protection).
+                    responseText.textContent = '';
 
-                        return '<div class="rag-response-item mb-3">'
-                            + '<h4 class="rag-response-title">' + titleHtml + '</h4>'
-                            + '<div class="rag-response-content" data-content-id="' + item.id + '">'
-                            + item.content
-                            + '</div>'
-                            + '</div>';
-                    }).join('');
+                    response.answer.forEach(function(item) {
+                        var itemWrapper = document.createElement('div');
+                        itemWrapper.className = 'rag-response-item mb-3';
+
+                        var titleEl = document.createElement('h4');
+                        titleEl.className = 'rag-response-title';
+                        if (item.viewurl) {
+                            var link = document.createElement('a');
+                            // viewurl is generated server-side from moodle_url
+                            // (always http/https) and is set via the href
+                            // property so it is treated as a URL, not markup.
+                            link.href = item.viewurl;
+                            link.target = '_blank';
+                            link.rel = 'noopener noreferrer';
+                            link.textContent = item.title;
+                            titleEl.appendChild(link);
+                        } else {
+                            titleEl.textContent = item.title;
+                        }
+                        itemWrapper.appendChild(titleEl);
+
+                        var contentEl = document.createElement('div');
+                        contentEl.className = 'rag-response-content';
+                        contentEl.setAttribute('data-content-id', item.id);
+                        contentEl.textContent = item.content;
+                        itemWrapper.appendChild(contentEl);
+
+                        responseText.appendChild(itemWrapper);
+                    });
 
                     contentPlaceholder.classList.add('hidden');
                     responseContent.classList.remove('hidden');

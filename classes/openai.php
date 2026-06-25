@@ -165,11 +165,15 @@ class openai implements provider_interface {
      * @throws moodle_exception If the API request fails
      */
     public function get_response($prompt) {
+        // The combined RAG prompt (system instructions + context + question) is
+        // sent as a single "user" turn.  Sending it as a "system" message left
+        // the request with no user turn and is rejected outright by the
+        // reasoning models (o1 / o1-mini), which do not accept system messages.
         $payload = [
             "model" => $this->chatmodel,
             "messages" => [
                 [
-                    "role" => "system",
+                    "role" => "user",
                     "content" => $prompt,
                 ],
             ],
@@ -415,6 +419,24 @@ class openai implements provider_interface {
             );
         }
 
+        // Fallback: the model produced text but none of it matched the
+        // [chunk_id] format (or every line was filtered out).  Rather than
+        // returning an empty answer — which leaves the user looking at only
+        // token counts — surface the raw model output as a single answer item.
+        if (empty($result) && $text !== '') {
+            debugging(
+                'TerusRAG OpenAI parse_response: no [chunk_id]-formatted content; '
+                . 'returning raw model output as fallback.',
+                DEBUG_DEVELOPER
+            );
+            return [[
+                'id'      => 0,
+                'title'   => get_string('airesponse', 'block_terusrag'),
+                'content' => $text,
+                'viewurl' => null,
+            ]];
+        }
+
         return array_values($result);
     }
 
@@ -592,77 +614,52 @@ class openai implements provider_interface {
      * @return void
      */
     public function data_initialization() {
-        global $DB;
-
-        // Process courses in chunks of 100 to manage memory.
+        // Process items in batches of 100 to manage memory.
         $batchsize = 100;
-        $lastprocessedtime = get_config('block_terusrag', 'last_processed_time') ?? 0;
+        $lastprocessedtime = (int) (get_config('block_terusrag', 'last_processed_time') ?: 0);
         $currenttime = time();
         $chunksize = 1024;
 
-        $sql = "SELECT c.id, c.fullname, c.shortname, c.summary, c.timemodified"
-             . " FROM {course} c"
-             . " WHERE c.visible = 1"
-             . " AND c.timemodified > ?"
-             . " ORDER BY c.id";
+        $batch = [];
 
-        $rs = $DB->get_recordset_sql($sql, [$lastprocessedtime]);
+        // The indexer yields both courses and supported activities/resources.
+        foreach (indexer::get_indexable_items($lastprocessedtime) as $item) {
+            $batch[] = $item;
 
-        $coursebatch = [];
-        $processedcount = 0;
+            if (count($batch) >= $batchsize) {
+                $this->process_course_batch($batch, $chunksize);
+                $batch = [];
 
-        try {
-            foreach ($rs as $course) {
-                $coursecontent = !empty($course->summary) ? $course->summary : $course->fullname;
-                $string = strip_tags($coursecontent);
-
-                // Process in batches to optimize API calls and memory usage.
-                $coursebatch[] = [
-                    'content' => $string,
-                    'title' => $course->fullname,
-                    'moduleid' => $course->id,
-                    'timemodified' => $course->timemodified,
-                ];
-
-                if (count($coursebatch) >= $batchsize) {
-                    $this->process_course_batch($coursebatch, $chunksize);
-                    $coursebatch = [];
-                    $processedcount += $batchsize;
-
-                    // Free up memory.
-                    gc_collect_cycles();
-                }
+                // Free up memory.
+                gc_collect_cycles();
             }
-
-            // Process any remaining courses.
-            if (!empty($coursebatch)) {
-                $this->process_course_batch($coursebatch, $chunksize);
-                $processedcount += count($coursebatch);
-            }
-
-            // Update last processed time.
-            set_config('last_processed_time', $currenttime, 'block_terusrag');
-        } finally {
-            $rs->close();
         }
+
+        // Process any remaining items.
+        if (!empty($batch)) {
+            $this->process_course_batch($batch, $chunksize);
+        }
+
+        // Update last processed time.
+        set_config('last_processed_time', $currenttime, 'block_terusrag');
     }
 
     /**
-     * Process a batch of courses for embedding generation
+     * Process a batch of indexable items for embedding generation.
      *
-     * @param array $coursebatch Array of courses to process
+     * @param array $itembatch Array of items (courses and/or activities) to process
      * @param int $chunksize Size of content chunks
      * @return void
      */
-    protected function process_course_batch($coursebatch, $chunksize) {
+    protected function process_course_batch($itembatch, $chunksize) {
         global $DB;
 
         $chunks = [];
-        $chunkmap = [];  // Maps chunk index to course data.
+        $chunkmap = [];  // Maps chunk index to item data.
 
         // Prepare chunks for batch embedding.
-        foreach ($coursebatch as $index => $coursedata) {
-            $string = $coursedata['content'];
+        foreach ($itembatch as $itemdata) {
+            $string = $itemdata['content'];
             $stringlength = mb_strlen($string);
 
             for ($i = 0; $i < $stringlength; $i += $chunksize) {
@@ -670,8 +667,9 @@ class openai implements provider_interface {
                 $chunk = mb_substr($string, $i, $chunksize);
                 $chunks[] = $chunk;
                 $chunkmap[$chunkindex] = [
-                    'title' => $coursedata['title'],
-                    'moduleid' => $coursedata['moduleid'],
+                    'title' => $itemdata['title'],
+                    'moduleid' => $itemdata['moduleid'],
+                    'moduletype' => $itemdata['moduletype'],
                     'content' => $chunk,
                     'contenthash' => sha1($chunk),
                 ];
@@ -688,23 +686,23 @@ class openai implements provider_interface {
                     continue;
                 }
 
-                $coursellm = $chunkmap[$index];
-                $coursellm['embedding'] = serialize($embedding);
-                $coursellm['timecreated'] = time();
-                $coursellm['timemodified'] = time();
-                $coursellm['moduletype'] = 'course';
+                $itemllm = $chunkmap[$index];
+                $values = is_array($embedding) && isset($embedding["values"]) ? $embedding["values"] : $embedding;
+                $itemllm['embedding'] = serialize($values);
+                $itemllm['timecreated'] = time();
+                $itemllm['timemodified'] = time();
 
                 // Check if record exists and update/insert accordingly.
                 $record = $DB->get_record('block_terusrag', [
-                    'contenthash' => $coursellm['contenthash'],
-                    'moduleid' => $coursellm['moduleid'],
+                    'contenthash' => $itemllm['contenthash'],
+                    'moduleid' => $itemllm['moduleid'],
                 ]);
 
                 if ($record) {
-                    $coursellm['id'] = $record->id;
-                    $DB->update_record('block_terusrag', (object)$coursellm);
+                    $itemllm['id'] = $record->id;
+                    $DB->update_record('block_terusrag', (object)$itemllm);
                 } else {
-                    $DB->insert_record('block_terusrag', (object)$coursellm);
+                    $DB->insert_record('block_terusrag', (object)$itemllm);
                 }
             }
         }

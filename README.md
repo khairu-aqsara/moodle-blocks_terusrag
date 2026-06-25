@@ -7,9 +7,12 @@
 This Moodle block plugin implements Retrieval-Augmented Generation (RAG) functionality, allowing users to query course content using large language models. The plugin integrates with either Google's Gemini API, Ollama or OpenAI to provide intelligent responses based on your course data.
 
 ### Searchable Content
-For now the plugin indexes and makes searchable the Course descriptions and summaries
+The plugin indexes and makes searchable:
 
-The content is automatically processed and indexed during the daily scheduled task, with immediate indexing occurring when content is created or modified.
+* Course names and summaries/descriptions
+* Activity and resource names and introductions (Resource, Page, Assignment, Forum and Book), including Page body content
+
+Only visible courses and visible activities are indexed. The content is automatically processed and indexed during the daily scheduled task; an upgrade triggers a one-off full re-index so existing activities are picked up.
 
 ## Features
 - Implements RAG (Retrieval-Augmented Generation) architecture
@@ -137,15 +140,16 @@ The plugin includes scheduled tasks to maintain and update the vector embeddings
 1. Content Indexing Task
    - Runs daily by default
    - Scans course content for changes
-   - Processes course content which includes:
-     * Course descriptions and summaries
-     * Course section descriptions
-     * Resource descriptions and content
-     * Activity descriptions and content (assignments, quizzes, forums, etc.)
-     * Book and page module content
-     * Labels and HTML blocks content
+   - Processes content which includes:
+     * Course names, descriptions and summaries
+     * Resource names and introductions
+     * Page module names, introductions and body content
+     * Assignment names and introductions
+     * Forum names and introductions
+     * Book module names and introductions
+   - Only visible courses and visible activities are indexed
    - Updates vector embeddings for modified content
-   - Re-indexes content when course information changes
+   - Re-indexes content when course or activity information changes
 
 2. Running Tasks Manually
    - Via CLI:

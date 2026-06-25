@@ -25,15 +25,13 @@
 
 namespace block_terusrag;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Parsing logic unit tests for TerusRAG.
  *
  * @group block_terusrag
+ * @covers \block_terusrag\gemini
  */
-class parsing_test extends \advanced_testcase {
-
+final class parsing_test extends \advanced_testcase {
     /**
      * Test the get_proper_answer logic for different formats.
      */
@@ -51,7 +49,7 @@ class parsing_test extends \advanced_testcase {
         $this->assertEquals(55, $res['id']);
         $this->assertEquals("Testing parentheses.", $res['content']);
 
-        // 3. ID label format ID: 
+        // 3. ID label format ID:
         $res = $gemini->get_proper_answer("id: 42 - Label test.");
         $this->assertEquals(42, $res['id']);
         $this->assertEquals("- Label test.", $res['content']);
@@ -69,24 +67,102 @@ class parsing_test extends \advanced_testcase {
     }
 
     /**
-     * Test deduplication across all providers.
+     * Test deduplication / filtering across the parsing pipeline.
      */
     public function test_parse_response_filtering(): void {
         $this->resetAfterTest();
         $gemini = new \block_terusrag\gemini();
 
-        // One valid line, one invalid chunk id but has content, one empty line with only ID (filtered)
-        $raw = "[1] Valid content.\n\n[9999] Fallback content.\n(0) ";
-        
         global $DB;
-        $DB->insert_record('block_terusrag', ['id' => 1, 'moduleid' => 1, 'moduletype' => 'course', 'title' => 'T1', 'content' => 'C1']);
+        $DB->insert_record('block_terusrag', [
+            'moduleid' => 1,
+            'moduletype' => 'course',
+            'title' => 'T1',
+            'content' => 'C1',
+            'contenthash' => sha1('C1'),
+        ]);
+
+        // One valid line, one unknown chunk id but with content (kept as
+        // fallback), and one line with only an ID and no text (filtered).
+        $raw = "[1] Valid content.\n\n[9999] Fallback content.\n(0) ";
 
         $result = $gemini->parse_response($raw);
-        $this->assertDebuggingCalledCount(4);
 
-        // Expect 2 items: 1 found, 1 fallback. The line with no content text should be filtered.
+        // Expect 2 items: 1 resolved, 1 unverified-but-has-content. The line
+        // carrying only an ID (no text) is dropped.
         $this->assertCount(2, $result);
         $this->assertEquals(1, $result[0]['id']);
         $this->assertEquals('Valid content.', $result[0]['content']);
+        $this->assertEquals('Fallback content.', $result[1]['content']);
+
+        // Several DEBUG_DEVELOPER messages are emitted along the way; clear them
+        // so the test does not fail on unexpected debugging at teardown.
+        $this->resetDebugging();
+    }
+
+    /**
+     * Gemini 2.5 "thinking" parts must be ignored so only the answer is parsed.
+     */
+    public function test_thought_parts_are_skipped(): void {
+        $this->resetAfterTest();
+        global $DB;
+
+        $gemini = new \block_terusrag\gemini();
+
+        // Index a chunk that maps to the site course so the id resolves cleanly.
+        $chunkid = $DB->insert_record('block_terusrag', [
+            'moduleid' => 1,
+            'moduletype' => 'course',
+            'title' => 'Site',
+            'content' => 'Site content',
+            'contenthash' => sha1('Site content'),
+        ]);
+
+        // Mimic a Gemini response where the model's reasoning is returned as a
+        // separate part flagged thought=true, followed by the real answer.
+        $candidates = [
+            [
+                'content' => [
+                    'parts' => [
+                        ['text' => "Reasoning line one.\nMore reasoning 42.", 'thought' => true],
+                        ['text' => "[{$chunkid}] The real answer."],
+                    ],
+                ],
+            ],
+        ];
+
+        $result = $gemini->parse_response($candidates);
+
+        // If thought text leaked in, the reasoning lines would create extra
+        // items (and a wrong id from "42"). Exactly one clean item proves the
+        // thought part was skipped.
+        $this->assertCount(1, $result);
+        $this->assertEquals((int) $chunkid, $result[0]['id']);
+        $this->assertEquals('The real answer.', $result[0]['content']);
+
+        $this->resetDebugging();
+    }
+
+    /**
+     * When the model output carries no usable answer text per the [id] format,
+     * the raw output is surfaced as a single fallback item (never empty).
+     */
+    public function test_raw_fallback_when_no_formatted_content(): void {
+        $this->resetAfterTest();
+        $gemini = new \block_terusrag\gemini();
+
+        // Two lines that are only chunk IDs with no answer text — every parsed
+        // line is filtered for empty content, so the fallback must kick in.
+        $raw = "[5]\n[6]";
+
+        $result = $gemini->parse_response($raw);
+
+        $this->assertCount(1, $result);
+        $this->assertEquals(0, $result[0]['id']);
+        $this->assertEquals(get_string('airesponse', 'block_terusrag'), $result[0]['title']);
+        $this->assertEquals($raw, $result[0]['content']);
+        $this->assertNull($result[0]['viewurl']);
+
+        $this->resetDebugging();
     }
 }
